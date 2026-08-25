@@ -1,11 +1,11 @@
 import {
+  CalendarCheck,
   CalendarDays,
   CalendarRange,
   GraduationCap,
   LayoutDashboard,
   Palmtree,
   Settings,
-  Table2,
   Users,
   Wand2,
 } from "lucide-react";
@@ -49,7 +49,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Übersicht",
     items: [
       { href: "/", label: "Start", icon: LayoutDashboard },
-      { href: "/year", label: "Jahresübersicht", icon: Table2 },
+      { href: "/calendar", label: "Monatsübersicht", icon: CalendarCheck },
     ],
   },
   {

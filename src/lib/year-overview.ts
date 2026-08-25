@@ -17,7 +17,10 @@ import {
 export * from "@/lib/year-marks";
 
 /**
- * Jahresübersicht: wer ist wann nicht da.
+ * Datengrundlage des Abwesenheitskalenders: wer ist wann nicht da.
+ *
+ * Geladen wird immer ein ganzes Jahr. Die Oberfläche zeigt davon einen Monat,
+ * kann aber ohne zweite Abfrage die Jahressummen danebenstellen.
  *
  * Zusammengetragen werden Urlaub, Krankmeldungen und sonstige Abwesenheiten
  * beider Personengruppen sowie – bei Auszubildenden – die wiederkehrenden
@@ -62,7 +65,11 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
     schoolHolidayRows,
   ] = await Promise.all([
       db
-        .select({ id: apprentices.id, name: apprentices.displayName })
+        .select({
+          id: apprentices.id,
+          name: apprentices.displayName,
+          shortName: apprentices.shortName,
+        })
         .from(apprentices)
         .orderBy(apprentices.displayName),
       db
@@ -93,12 +100,14 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
   const days: YearDay[] = eachDay(from, to).map((date) => {
     const weekday = isoWeekday(date);
     const closure = closures.find((c) => date >= c.startDate && date <= c.endDate);
+    const ferien = schoolHolidayRows.find((f) => date >= f.startDate && date <= f.endDate);
     return {
       date,
       weekday,
       isWeekend: weekday >= 6,
       holiday: holidayByDate.get(date),
       closure: closure?.name,
+      schoolHoliday: ferien?.name,
     };
   });
 
@@ -116,9 +125,23 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
     shiftsByStaff.set(shift.staffId, list);
   }
 
+  /** Ohne hinterlegtes Kürzel genügt der Vorname – im Betrieb ist er eindeutig. */
+  const shorten = (name: string, shortName?: string | null) =>
+    shortName?.trim() || name.split(" ")[0];
+
   const people: PersonYear[] = [
-    ...apprenticeRows.map((row) => ({ kind: "APPRENTICE" as const, id: row.id, name: row.name })),
-    ...staffRows.map((row) => ({ kind: "DESK" as const, id: row.id, name: row.name })),
+    ...apprenticeRows.map((row) => ({
+      kind: "APPRENTICE" as const,
+      id: row.id,
+      name: row.name,
+      shortName: shorten(row.name, row.shortName),
+    })),
+    ...staffRows.map((row) => ({
+      kind: "DESK" as const,
+      id: row.id,
+      name: row.name,
+      shortName: shorten(row.name),
+    })),
   ].map((person) => {
     const marks: Record<IsoDate, DayMark> = {};
     const shifts = person.kind === "DESK" ? (shiftsByStaff.get(person.id) ?? []) : [];

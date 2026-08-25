@@ -3,9 +3,9 @@
 Webanwendung für die Auszubildenden des Betriebs. Der erste Bereich ist die
 Vertretungsplanung der Zentrale: Sie verteilt die Pausenvertretung und die
 ganztägige Vertretung automatisch und möglichst gleichmäßig, unter
-Berücksichtigung von Berufsschultagen, Urlaub, Krankmeldungen, NRW-Feiertagen
-und Betriebsferien. Dazu kommen die Selbstpflege von Urlaub und Schultagen und
-eine Jahresübersicht für alle.
+Berücksichtigung von Berufsschultagen, Urlaub, Krankmeldungen, NRW-Feiertagen,
+Schulferien und Betriebsferien. Dazu kommen die Selbstpflege von Urlaub und
+Schultagen und ein Monatskalender für alle.
 
 Das Portal ist auf weitere Bereiche ausgelegt: Die Navigation ist in Gruppen
 gegliedert (`src/components/app/nav-config.ts`), sodass ein neues Thema als
@@ -37,11 +37,11 @@ wäre.
   (Webhook / Power-Automate-Workflow), Kanäle pro Person abschaltbar.
 - **Kalender-Abo** – jeder Azubi hat eine persönliche ICS-Adresse, die Outlook
   automatisch aktualisiert.
-- **Jahresübersicht für alle** – ein Kalenderband über das ganze Jahr zeigt,
-  wer wann in Urlaub, krank, in der Schule oder auf Lehrgang ist. Ein Tippen
-  auf einen Tag oder einen Namen öffnet die Einzelheiten. Den Vertretungsplan
-  und die Jahresübersicht sehen alle Angemeldeten; bearbeiten darf jede:r nur
-  die eigenen Daten.
+- **Monatskalender für alle** – ein Kalenderblatt je Monat zeigt namentlich,
+  wer in Urlaub, krank, in der Schule oder auf Lehrgang ist; ein Tippen auf
+  einen Tag öffnet Grund und angerechnete Tage. Daneben stehen die Summen für
+  den Monat und für das laufende Jahr. Den Vertretungsplan und den Kalender
+  sehen alle Angemeldeten; bearbeiten darf jede:r nur die eigenen Daten.
 - **Urlaubstage zählen nach Anwesenheit** – bei der festen Zentrale-Besetzung
   zählen nur die Wochentage, an denen sie tatsächlich in der Zentrale wäre.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
@@ -132,7 +132,7 @@ den Grund. Ohne diese Prüfung erschiene der Fehler erst beim Anmeldeversuch als
 | `PLANNER` | zusätzlich planen und alle Stammdaten pflegen |
 | `ADMIN` | zusätzlich Rollen, Benachrichtigungen und Systemeinstellungen |
 
-Vertretungsplan und Jahresübersicht sind unabhängig von der Rolle für alle
+Vertretungsplan und Monatskalender sind unabhängig von der Rolle für alle
 Angemeldeten sichtbar – die Rollen steuern nur, wer etwas ändern darf.
 
 Die Rolle `PLANNER` schließt einen eigenen Auszubildenden-Datensatz nicht aus:
@@ -328,7 +328,7 @@ src/
   app/
     (app)/              Angemeldeter Bereich
       page.tsx          Startseite mit Tagesübersicht und Warnungen
-      year/             Jahresübersicht: wer ist wann nicht da
+      calendar/         Monatskalender: wer ist wann nicht da
       schedule/         Vertretungsplan für alle
       my-schedule/      Eigene Termine + Kalender-Abo
       absences/         Urlaub, Krankmeldungen, Ausfälle der Zentrale
@@ -345,7 +345,8 @@ src/
     holidays.ts         NRW-Feiertage (Osterformel, für jedes Jahr)
     school-holidays-nrw.ts  Ferienordnung NRW bis 2029/30
     calendar.ts         Feiertage + Anpassungen, Betriebsferien
-    year-overview.ts    Datengrundlage der Jahresübersicht
+    year-overview.ts    Datengrundlage des Abwesenheitskalenders
+    year-marks.ts       Formen und Monatsableitung dazu
     people.ts           Gemeinsame Begriffe für Azubis und Zentrale-Besetzung
     ics.ts              ICS-Generator
     settings.ts         Einstellungen mit Zod-Schemata

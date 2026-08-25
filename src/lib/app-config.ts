@@ -11,4 +11,4 @@ export const APP_NAME = "Azubiportal";
 export const APP_TAGLINE = "Urlaub, Schultage und Vertretungsplan";
 
 export const APP_DESCRIPTION =
-  "Portal für Auszubildende: Urlaub und Schultage pflegen, den Vertretungsplan der Zentrale einsehen und die Jahresübersicht im Blick behalten.";
+  "Portal für Auszubildende: Urlaub und Schultage pflegen, den Vertretungsplan der Zentrale einsehen und im Monatskalender behalten, wer wann nicht da ist.";
