@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { apprentices, deskStaff, users, type Role } from "@/db/schema";
 import { randomBytes } from "node:crypto";
+import { applyEntraEnvDefaults, readEntraConfig } from "@/lib/entra";
 
 declare module "next-auth" {
   interface Session {
@@ -21,6 +22,22 @@ declare module "next-auth" {
 
 const devLoginEnabled =
   process.env.DEV_LOGIN_ENABLED === "true" && process.env.NODE_ENV !== "production";
+
+/**
+ * Auth.js liest `AUTH_URL` selbst aus der Umgebung. Steht dort ein leerer Wert
+ * – etwa weil Docker Compose eine nicht gesetzte Variable eingesetzt hat –,
+ * versucht es daraus eine Adresse zu bauen und scheitert. Ein leerer Wert ist
+ * dasselbe wie kein Wert.
+ */
+for (const name of ["AUTH_URL", "NEXTAUTH_URL", "AUTH_REDIRECT_PROXY_URL"]) {
+  if (process.env[name] !== undefined && process.env[name]!.trim() === "") {
+    delete process.env[name];
+  }
+}
+
+// Muss vor `NextAuth()` laufen: Auth.js liest diese Variablen selbst aus.
+applyEntraEnvDefaults();
+const entra = readEntraConfig();
 
 function bootstrapAdmins(): string[] {
   return (process.env.BOOTSTRAP_ADMIN_EMAILS ?? "")
@@ -126,12 +143,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: "/login", error: "/login" },
   trustHost: true,
   providers: [
-    ...(process.env.AUTH_MICROSOFT_ENTRA_ID_ID
+    ...(entra
       ? [
           MicrosoftEntraID({
-            clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
-            clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-            issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+            clientId: entra.clientId,
+            clientSecret: entra.clientSecret,
+            issuer: entra.issuer,
             authorization: { params: { scope: "openid profile email User.Read" } },
           }),
         ]

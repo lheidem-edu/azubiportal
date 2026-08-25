@@ -87,23 +87,29 @@ angelegt werden – siehe unten.
 
 ## Microsoft Entra ID einrichten
 
-1. Im Azure-Portal unter *Microsoft Entra ID → App-Registrierungen* eine neue
-   Registrierung anlegen.
-2. Redirect-URI (Typ *Web*):
-   `https://<deine-domain>/api/auth/callback/microsoft-entra-id`
-3. Ein Client-Geheimnis erzeugen.
-4. Werte in die Umgebung übernehmen:
+1. In Entra ID unter *App-Registrierungen* eine neue Anwendung anlegen.
+2. Als Umleitungs-URI (Typ *Web*) eintragen:
+   `https://<adresse>/api/auth/callback/microsoft-entra-id`
+3. Unter *Zertifikate & Geheimnisse* ein Client-Geheimnis erzeugen und den
+   **Wert** kopieren – nicht die daneben stehende Geheimnis-ID.
+4. Die drei Variablen setzen:
 
 ```env
-AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID>
-AUTH_MICROSOFT_ENTRA_ID_SECRET=<Geheimnis>
-AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/<Mandanten-ID>/v2.0
-DEV_LOGIN_ENABLED=false
+AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID (client)>
+AUTH_MICROSOFT_ENTRA_ID_SECRET=<Wert des Client-Geheimnisses>
+AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Verzeichnis-ID (Mandant)>
 ```
 
-Benutzerkonten entstehen beim ersten Login automatisch. Stimmt die
-E-Mail-Adresse mit einem vorab angelegten Auszubildenden oder einer hinterlegten
-Zentrale-Besetzung überein, werden die Datensätze verknüpft.
+Beim Aussteller werden alle gebräuchlichen Schreibweisen angenommen: die bloße
+Mandanten-ID, die vollständige Adresse
+`https://login.microsoftonline.com/<MANDANTEN-ID>/v2.0` – mit oder ohne
+abschließenden Schrägstrich – und auch eine Angabe ohne `https://`. Bleibt die
+Variable leer, kann sich jedes Microsoft-Konto anmelden; für den Betrieb im
+Unternehmen gehört die Mandanten-ID hinein.
+
+Ist der Wert unbrauchbar, startet der Container nicht und nennt im Protokoll
+den Grund. Ohne diese Prüfung erschiene der Fehler erst beim Anmeldeversuch als
+`TypeError: Invalid URL`.
 
 ### Rollen
 

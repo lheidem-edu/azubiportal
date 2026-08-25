@@ -4,11 +4,33 @@
  * Login abstürzt.
  */
 
+import { envValue, normalizeEntraIssuer } from "@/lib/entra";
+
 type Check = { name: string; ok: boolean; hint: string };
+
+/** Prüft, ob ein Wert eine vollständige Adresse ist. */
+function isUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function issuerIsUsable(): boolean {
+  try {
+    normalizeEntraIssuer(process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function checkEnvironment(): Check[] {
   const production = process.env.NODE_ENV === "production";
-  const entraConfigured = Boolean(process.env.AUTH_MICROSOFT_ENTRA_ID_ID);
+  const entraConfigured = Boolean(envValue("AUTH_MICROSOFT_ENTRA_ID_ID"));
   const devLogin = process.env.DEV_LOGIN_ENABLED === "true";
 
   return [
@@ -24,8 +46,8 @@ export function checkEnvironment(): Check[] {
     },
     {
       name: "AUTH_URL",
-      ok: !production || Boolean(process.env.AUTH_URL),
-      hint: "Öffentliche Adresse der Anwendung, z.B. https://azubiportal.firma.de",
+      ok: !production || isUrl(envValue("AUTH_URL")),
+      hint: "Vollständige öffentliche Adresse der Anwendung, z.B. https://azubiportal.firma.de",
     },
     {
       name: "CRON_SECRET",
@@ -36,6 +58,16 @@ export function checkEnvironment(): Check[] {
       name: "Anmeldeverfahren",
       ok: entraConfigured || !production,
       hint: "In Produktion muss Microsoft Entra ID konfiguriert sein (AUTH_MICROSOFT_ENTRA_ID_*).",
+    },
+    {
+      name: "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+      ok: !entraConfigured || Boolean(envValue("AUTH_MICROSOFT_ENTRA_ID_SECRET")),
+      hint: "Wird zusammen mit AUTH_MICROSOFT_ENTRA_ID_ID benötigt (Wert des Client-Geheimnisses, nicht dessen ID).",
+    },
+    {
+      name: "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+      ok: !entraConfigured || issuerIsUsable(),
+      hint: "Entweder leer lassen oder https://login.microsoftonline.com/<MANDANTEN-ID>/v2.0 bzw. nur die Mandanten-ID angeben.",
     },
     {
       name: "DEV_LOGIN_ENABLED",
