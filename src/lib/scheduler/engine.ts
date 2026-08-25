@@ -108,15 +108,24 @@ export function describeDays(input: SchedulerInput): DayContext[] {
       day.requiresFullDay = true;
     }
 
-    const pool = (day.requiresFullDay ? fullDaySlots : breakSlots).filter((s) =>
-      s.weekdays.includes(weekday),
-    );
-    day.duties = buildDuties(pool, day.requiresFullDay, options);
+    /**
+     * Fällt die Festbesetzung aus, wird die Zentrale ganztägig vertreten –
+     * und diese Person braucht selbst Pausen. Deshalb werden an solchen Tagen
+     * beide Dienste besetzt: die ganztägige Vertretung zuerst, danach die
+     * Pausenvertretung für sie.
+     */
+    const forWeekday = (slots: SchedulerSlot[]) =>
+      slots.filter((slot) => slot.weekdays.includes(weekday));
+
+    day.duties = [
+      ...(day.requiresFullDay ? buildDuties(forWeekday(fullDaySlots), true, options) : []),
+      ...buildDuties(forWeekday(breakSlots), false, options),
+    ];
 
     if (day.duties.length === 0) {
       day.isWorkday = false;
       day.skipReason = day.requiresFullDay
-        ? "Kein Ganztags-Slot für diesen Wochentag konfiguriert"
+        ? "Kein Slot für diesen Wochentag konfiguriert"
         : "Keine Vertretung an diesem Wochentag vorgesehen";
     }
     return day;
@@ -130,12 +139,12 @@ export function describeDays(input: SchedulerInput): DayContext[] {
  */
 function buildDuties(
   slots: SchedulerSlot[],
-  requiresFullDay: boolean,
+  isFullDay: boolean,
   options: SchedulerOptions,
 ): Duty[] {
   if (slots.length === 0) return [];
 
-  if (!requiresFullDay && options.combineBreaks && slots.length > 1) {
+  if (!isFullDay && options.combineBreaks && slots.length > 1) {
     return [
       {
         key: "BREAKS",
@@ -278,7 +287,14 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
 
       for (let rank = 1; rank <= totalRanks; rank++) {
         if (chosen.has(rank)) continue;
-        const pool = candidates.filter((c) => !taken.has(c.id));
+        /**
+         * Niemand kann an einem Tag zwei Dienste gleichzeitig übernehmen: Wer
+         * ganztags vertritt, kann nicht zusätzlich die eigene Pause abdecken.
+         * Für Ersatzleute gilt das nicht – sie springen nur im Notfall ein.
+         */
+        const pool = candidates.filter(
+          (c) => !taken.has(c.id) && !(rank === 1 && primaryToday.has(c.id)),
+        );
         if (pool.length === 0) {
           missing.push(rank);
           continue;

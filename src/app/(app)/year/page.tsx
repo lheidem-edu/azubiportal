@@ -14,8 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireUser } from "@/lib/session";
+import { today } from "@/lib/dates";
 import { getYearOverview, sortPeople } from "@/lib/year-overview";
-import { YearGrid, YearLegend } from "./year-grid";
+import { YearGrid } from "./year-grid";
 
 export const metadata = { title: "Jahresübersicht" };
 
@@ -58,10 +59,7 @@ export default async function YearPage(props: PageProps<"/year">) {
       <Card className="mb-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{year}</CardTitle>
-          <CardDescription>
-            Seitlich scrollen, um durch das Jahr zu blättern. Ein Tippen auf einen Tag zeigt die
-            Einzelheiten.
-          </CardDescription>
+          <CardDescription>Seitlich scrollen, um durch das Jahr zu blättern.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {people.length === 0 ? (
@@ -69,10 +67,7 @@ export default async function YearPage(props: PageProps<"/year">) {
               Es sind noch keine Personen angelegt.
             </p>
           ) : (
-            <>
-              <YearGrid overview={{ ...overview, people }} />
-              <YearLegend />
-            </>
+            <YearGrid overview={{ ...overview, people }} today={today()} />
           )}
         </CardContent>
       </Card>
@@ -81,8 +76,8 @@ export default async function YearPage(props: PageProps<"/year">) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Summen {year}</CardTitle>
           <CardDescription>
-            Gezählt werden nur Arbeitstage; halbe Tage zählen halb. Beantragter, noch nicht
-            genehmigter Urlaub ist enthalten.
+            Gezählt werden nur Tage, an denen die Person tatsächlich da wäre – bei der
+            Zentrale-Besetzung also nur ihre eigenen Wochentage. Halbe Tage zählen halb.
           </CardDescription>
         </CardHeader>
         <CardContent>

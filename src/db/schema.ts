@@ -37,13 +37,6 @@ export const absenceTypeEnum = pgEnum("absence_type", [
   "OTHER",
 ]);
 
-export const absenceStatusEnum = pgEnum("absence_status", [
-  "PENDING",
-  "APPROVED",
-  "REJECTED",
-  "CANCELLED",
-]);
-
 /** Ganztags oder nur halber Tag. */
 export const dayPartEnum = pgEnum("day_part", ["FULL", "MORNING", "AFTERNOON"]);
 
@@ -183,12 +176,9 @@ export const absences = pgTable(
     dayPart: dayPartEnum().notNull().default("FULL"),
     startDate: date().notNull(),
     endDate: date().notNull(),
-    status: absenceStatusEnum().notNull().default("PENDING"),
     reason: text(),
+    /** Wer den Eintrag erfasst hat – eine Genehmigung gibt es nicht. */
     requestedBy: uuid().references(() => users.id, { onDelete: "set null" }),
-    decidedBy: uuid().references(() => users.id, { onDelete: "set null" }),
-    decidedAt: timestamp({ withTimezone: true }),
-    decisionNote: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -476,6 +466,5 @@ export type PlanRun = typeof planRuns.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Role = (typeof roleEnum.enumValues)[number];
 export type AbsenceType = (typeof absenceTypeEnum.enumValues)[number];
-export type AbsenceStatus = (typeof absenceStatusEnum.enumValues)[number];
 export type DayPart = (typeof dayPartEnum.enumValues)[number];
 export type SlotKind = (typeof slotKindEnum.enumValues)[number];

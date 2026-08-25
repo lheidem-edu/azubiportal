@@ -53,7 +53,6 @@ export async function loadSchedulerInput(
       .where(
         and(
           isNotNull(absences.apprenticeId),
-          eq(absences.status, "APPROVED"),
           lte(absences.startDate, rangeEnd),
           gte(absences.endDate, historyStart),
         ),
@@ -80,7 +79,6 @@ export async function loadSchedulerInput(
       .where(
         and(
           isNotNull(absences.deskStaffId),
-          eq(absences.status, "APPROVED"),
           lte(absences.startDate, rangeEnd),
           gte(absences.endDate, rangeStart),
         ),

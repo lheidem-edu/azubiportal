@@ -1,10 +1,20 @@
-import { and, gte, isNotNull, lte, ne, or } from "drizzle-orm";
+import { and, gte, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { absences, apprentices, deskStaff, schoolTerms } from "@/db/schema";
+import { absences, apprentices, deskShifts, deskStaff, schoolTerms } from "@/db/schema";
 import { eachDay, isoWeekday, type IsoDate } from "@/lib/dates";
 import { listClosures, listEffectiveHolidays } from "@/lib/calendar";
 import { isSchoolDay } from "@/lib/scheduler/availability";
-import type { PersonKind } from "@/lib/people";
+import {
+  MARK_LABEL,
+  type DayMark,
+  type MarkKind,
+  type PersonAbsence,
+  type PersonYear,
+  type YearDay,
+  type YearOverview,
+} from "@/lib/year-marks";
+
+export * from "@/lib/year-marks";
 
 /**
  * Jahresübersicht: wer ist wann nicht da.
@@ -13,50 +23,6 @@ import type { PersonKind } from "@/lib/people";
  * beider Personengruppen sowie – bei Auszubildenden – die wiederkehrenden
  * Berufsschultage. Feiertage und Betriebsferien kommen als Hintergrund dazu.
  */
-
-export type MarkKind = "VACATION" | "SICK" | "SCHOOL" | "TRAINING" | "OTHER";
-
-export type DayMark = {
-  kind: MarkKind;
-  /** Kurzbeschreibung für den Tooltip. */
-  label: string;
-  /** Halbe Tage werden schwächer dargestellt. */
-  partial: boolean;
-  /** Noch nicht genehmigter Antrag. */
-  pending: boolean;
-  /**
-   * Wiederkehrender Termin – etwa der wöchentliche Berufsschultag. Er wird
-   * blasser gezeichnet, damit einmalige Abwesenheiten sichtbar bleiben.
-   */
-  recurring: boolean;
-};
-
-export type YearDay = {
-  date: IsoDate;
-  weekday: number;
-  isWeekend: boolean;
-  holiday?: string;
-  closure?: string;
-};
-
-export type PersonYear = {
-  kind: PersonKind;
-  id: string;
-  name: string;
-  /** Markierungen je Datum. */
-  marks: Record<IsoDate, DayMark>;
-  /** Genommene Urlaubstage (nur Arbeitstage, halbe Tage zählen halb). */
-  vacationDays: number;
-  /** Krankheitstage (nur Arbeitstage). */
-  sickDays: number;
-};
-
-export type YearOverview = {
-  year: number;
-  days: YearDay[];
-  months: { month: number; label: string; days: YearDay[] }[];
-  people: PersonYear[];
-};
 
 const MONTH_LABELS = [
   "Januar",
@@ -81,19 +47,11 @@ const ABSENCE_MARK: Record<string, MarkKind> = {
   OTHER: "OTHER",
 };
 
-export const MARK_LABEL: Record<MarkKind, string> = {
-  VACATION: "Urlaub",
-  SICK: "Krank",
-  SCHOOL: "Schule",
-  TRAINING: "Lehrgang",
-  OTHER: "Abwesend",
-};
-
 export async function getYearOverview(year: number): Promise<YearOverview> {
   const from: IsoDate = `${year}-01-01`;
   const to: IsoDate = `${year}-12-31`;
 
-  const [apprenticeRows, staffRows, absenceRows, schoolRows, holidays, closures] =
+  const [apprenticeRows, staffRows, absenceRows, schoolRows, shiftRows, holidays, closures] =
     await Promise.all([
       db
         .select({ id: apprentices.id, name: apprentices.displayName })
@@ -108,14 +66,13 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
         .from(absences)
         .where(
           and(
-            ne(absences.status, "REJECTED"),
-            ne(absences.status, "CANCELLED"),
             lte(absences.startDate, to),
             gte(absences.endDate, from),
             or(isNotNull(absences.apprenticeId), isNotNull(absences.deskStaffId)),
           ),
         ),
       db.select().from(schoolTerms).where(lte(schoolTerms.validFrom, to)),
+      db.select().from(deskShifts).where(lte(deskShifts.validFrom, to)),
       listEffectiveHolidays(from, to),
       listClosures(),
     ]);
@@ -143,11 +100,36 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
     schoolByApprentice.set(term.apprenticeId, list);
   }
 
+  const shiftsByStaff = new Map<string, typeof shiftRows>();
+  for (const shift of shiftRows) {
+    const list = shiftsByStaff.get(shift.staffId) ?? [];
+    list.push(shift);
+    shiftsByStaff.set(shift.staffId, list);
+  }
+
   const people: PersonYear[] = [
     ...apprenticeRows.map((row) => ({ kind: "APPRENTICE" as const, id: row.id, name: row.name })),
     ...staffRows.map((row) => ({ kind: "DESK" as const, id: row.id, name: row.name })),
   ].map((person) => {
     const marks: Record<IsoDate, DayMark> = {};
+    const shifts = person.kind === "DESK" ? (shiftsByStaff.get(person.id) ?? []) : [];
+    const deskWeekdays = [...new Set(shifts.map((s) => s.weekday))].sort();
+
+    /**
+     * An welchen Tagen wäre die Person überhaupt da? Auszubildende an jedem
+     * Arbeitstag, die Zentrale-Besetzung nur an ihren Wochentagen – ein
+     * Urlaubstag am Donnerstag kostet jemanden mit Dienst Mo–Mi nichts.
+     */
+    const wouldBePresent = (day: YearDay) => {
+      if (day.isWeekend || day.holiday || day.closure) return false;
+      if (person.kind !== "DESK") return true;
+      return shifts.some(
+        (shift) =>
+          shift.weekday === day.weekday &&
+          day.date >= shift.validFrom &&
+          (!shift.validTo || day.date <= shift.validTo),
+      );
+    };
 
     // Wiederkehrende Berufsschultage zuerst – konkrete Abwesenheiten
     // überschreiben sie anschließend.
@@ -161,7 +143,7 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
               kind: "SCHOOL",
               label: "Berufsschule",
               partial: false,
-              pending: false,
+              counts: false,
               recurring: true,
             };
           }
@@ -175,29 +157,50 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
         : entry.deskStaffId === person.id,
     );
 
+    const dayByDate = new Map(days.map((day) => [day.date, day]));
+    const personAbsences: PersonAbsence[] = [];
     let vacationDays = 0;
     let sickDays = 0;
 
     for (const entry of own) {
       const kind = ABSENCE_MARK[entry.type] ?? "OTHER";
       const partial = entry.dayPart !== "FULL";
-      const pending = entry.status === "PENDING";
-      const label = `${MARK_LABEL[kind]}${partial ? " (halber Tag)" : ""}${pending ? " – offen" : ""}`;
+      const label = `${MARK_LABEL[kind]}${partial ? " (halber Tag)" : ""}`;
+      const startDate = entry.startDate < from ? from : entry.startDate;
+      const endDate = entry.endDate > to ? to : entry.endDate;
+      let countedDays = 0;
 
-      for (const date of eachDay(
-        entry.startDate < from ? from : entry.startDate,
-        entry.endDate > to ? to : entry.endDate,
-      )) {
-        const day = days.find((d) => d.date === date);
+      for (const date of eachDay(startDate, endDate)) {
+        const day = dayByDate.get(date);
         if (!day) continue;
-        marks[date] = { kind, label, partial, pending, recurring: false };
-        if (day.isWeekend || day.holiday) continue;
+        const counts = wouldBePresent(day);
+        marks[date] = { kind, label, partial, counts, recurring: false };
+        if (!counts) continue;
+        countedDays += partial ? 0.5 : 1;
         if (kind === "VACATION") vacationDays += partial ? 0.5 : 1;
         if (kind === "SICK") sickDays += partial ? 0.5 : 1;
       }
+
+      personAbsences.push({
+        id: entry.id,
+        kind,
+        label: MARK_LABEL[kind],
+        startDate,
+        endDate,
+        reason: entry.reason,
+        countedDays,
+      });
     }
 
-    return { ...person, marks, vacationDays, sickDays };
+    personAbsences.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return {
+      ...person,
+      marks,
+      deskWeekdays,
+      absences: personAbsences,
+      vacationDays,
+      sickDays,
+    };
   });
 
   const months = MONTH_LABELS.map((label, index) => ({

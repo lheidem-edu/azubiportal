@@ -24,9 +24,10 @@ wäre.
 - **Lastenausgleich** – die Automatik wählt immer die Person mit der geringsten
   gewichteten Belastung. Eine Ganztagsvertretung zählt schwerer als eine Pause
   (Gewicht je Slot einstellbar), Ersatz-Nominierungen zählen anteilig mit.
-- **Selbstpflege durch die Azubis** – Urlaubsanträge, Krankmeldungen und
-  Berufsschultage (auch im 14-tägigen Rhythmus) tragen die Auszubildenden selbst
-  ein; Urlaub wird von der Ausbildungsleitung genehmigt.
+- **Selbstpflege durch die Azubis** – Urlaub, Krankmeldungen und
+  Berufsschultage (auch im 14-tägigen Rhythmus) tragen die Auszubildenden
+  selbst ein. Eine Genehmigung ist nicht nötig; jeder Eintrag wirkt sofort auf
+  die Planung.
 - **Selbstpflege durch die Zentrale** – die fest eingeteilten Personen melden
   sich mit demselben Login an und tragen ihren Urlaub und ihre Ausfälle selbst
   ein. Daraus entsteht automatisch der Bedarf an ganztägiger Vertretung.
@@ -37,9 +38,12 @@ wäre.
 - **Kalender-Abo** – jeder Azubi hat eine persönliche ICS-Adresse, die Outlook
   automatisch aktualisiert.
 - **Jahresübersicht für alle** – ein Kalenderband über das ganze Jahr zeigt,
-  wer wann in Urlaub, krank, in der Schule oder auf Lehrgang ist. Den
-  Vertretungsplan und die Jahresübersicht sehen alle Angemeldeten; bearbeiten
-  darf jede:r nur die eigenen Daten.
+  wer wann in Urlaub, krank, in der Schule oder auf Lehrgang ist. Ein Tippen
+  auf einen Tag oder einen Namen öffnet die Einzelheiten. Den Vertretungsplan
+  und die Jahresübersicht sehen alle Angemeldeten; bearbeiten darf jede:r nur
+  die eigenen Daten.
+- **Urlaubstage zählen nach Anwesenheit** – bei der festen Zentrale-Besetzung
+  zählen nur die Wochentage, an denen sie tatsächlich in der Zentrale wäre.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
   für jedes Jahr aus der Osterformel berechnet, auch weit in der Zukunft. Es
   gibt keinen Stichtag, ab dem der Kalender gepflegt werden müsste.
@@ -246,6 +250,11 @@ werden muss (Wochenende, Feiertag, Betriebsferien fallen heraus) und welchen
 **Dienst** es zu besetzen gibt. Ein Dienst ist das, was eine Person an einem Tag
 übernimmt: normalerweise alle Pausen zusammen, bei Ausfall der Festbesetzung
 stattdessen der ganze Tag.
+
+Fällt die Festbesetzung aus, entstehen **zwei** Dienste an diesem Tag: die
+ganztägige Vertretung und zusätzlich die Pausenvertretung – denn wer den ganzen
+Tag die Zentrale übernimmt, braucht selbst Pausen. Beide werden mit
+verschiedenen Personen besetzt; niemand hat an einem Tag zwei Dienste.
 
 Anschließend wird pro Dienst ein Bewerberfeld gebildet: Wer eingestellt,
 planbar, nicht in der Schule und nicht abwesend ist. Weil der Pausendienst

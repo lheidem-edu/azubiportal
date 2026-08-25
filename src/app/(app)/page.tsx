@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import {
   ArrowRight,
   CalendarCheck,
-  CircleAlert,
   Clock,
   TriangleAlert,
   UserRoundX,
@@ -38,18 +37,11 @@ export default async function DashboardPage() {
   const day = today();
   const general = await getSetting("general");
 
-  const [board, mine, pending, planEnd, deskInfo] = await Promise.all([
+  const [board, mine, planEnd, deskInfo] = await Promise.all([
     getPlanBoard(day, addDays(day, 6)),
     user.apprenticeId
       ? getUpcomingForApprentice(user.apprenticeId, day, addDays(day, 60))
       : Promise.resolve([]),
-    canPlan(user.role)
-      ? db
-          .select({ n: count() })
-          .from(absences)
-          .where(eq(absences.status, "PENDING"))
-          .then((r) => r[0].n)
-      : Promise.resolve(0),
     db
       .select({ last: sql<IsoDate | null>`max(${assignments.date})` })
       .from(assignments)
@@ -78,7 +70,7 @@ export default async function DashboardPage() {
         }
       />
 
-      {canPlan(user.role) && (planIncomplete || pending > 0 || upcomingGaps.length > 0) && (
+      {canPlan(user.role) && (planIncomplete || upcomingGaps.length > 0) && (
         <div className="mb-6 space-y-3">
           {planIncomplete && (
             <Alert>
@@ -94,20 +86,6 @@ export default async function DashboardPage() {
                 <Button size="sm" asChild>
                   <Link href="/planning">Jetzt planen</Link>
                 </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          {pending > 0 && (
-            <Alert>
-              <CircleAlert />
-              <AlertTitle>
-                {pending} offene{pending === 1 ? "r" : ""} Urlaubsantrag
-                {pending === 1 ? "" : "träge"}
-              </AlertTitle>
-              <AlertDescription>
-                <Link href="/admin/absences" className="underline underline-offset-4">
-                  Anträge prüfen
-                </Link>
               </AlertDescription>
             </Alert>
           )}

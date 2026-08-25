@@ -14,9 +14,8 @@ export default async function AbsencesAdminPage() {
 
   const [rows, people] = await Promise.all([listAbsences(), listPeople()]);
 
-  const pending = rows.filter((row) => row.status === "PENDING");
-  const current = rows.filter((row) => row.status !== "PENDING" && row.endDate >= today());
-  const past = rows.filter((row) => row.status !== "PENDING" && row.endDate < today());
+  const current = rows.filter((row) => row.endDate >= today());
+  const past = rows.filter((row) => row.endDate < today());
 
   return (
     <>
@@ -30,24 +29,15 @@ export default async function AbsencesAdminPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                Offene Anträge
-                {pending.length > 0 && <Badge>{pending.length}</Badge>}
+                Laufend und kommend
+                {current.length > 0 && <Badge variant="secondary">{current.length}</Badge>}
               </CardTitle>
               <CardDescription>
-                Genehmigte Zeiträume werden bei der Planung sofort berücksichtigt.
+                Alle Einträge gelten sofort – eine Genehmigung ist nicht nötig.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <AbsenceList rows={pending} showPerson canDecide />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Laufend und kommend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AbsenceList rows={current} showPerson canDecide />
+              <AbsenceList rows={current} showPerson />
             </CardContent>
           </Card>
 
@@ -64,7 +54,6 @@ export default async function AbsencesAdminPage() {
         <Card className="h-fit">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Neuer Eintrag</CardTitle>
-            <CardDescription>Gilt sofort, ohne Genehmigung.</CardDescription>
           </CardHeader>
           <CardContent>
             <AbsenceForm people={people} />

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, isNotNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -10,7 +10,6 @@ import {
   fail,
   isoDateSchema,
   ok,
-  requirePlannerAction,
   run,
   writeAudit,
 } from "@/lib/action-utils";
@@ -116,8 +115,6 @@ export async function createAbsence(input: unknown) {
           data.personKind === "APPRENTICE"
             ? eq(absences.apprenticeId, data.personId)
             : eq(absences.deskStaffId, data.personId),
-          ne(absences.status, "REJECTED"),
-          ne(absences.status, "CANCELLED"),
           lte(absences.startDate, data.endDate),
           gte(absences.endDate, data.startDate),
         ),
@@ -125,14 +122,6 @@ export async function createAbsence(input: unknown) {
     if (overlapping.length > 0) {
       return fail("Für diesen Zeitraum ist bereits eine Abwesenheit eingetragen.");
     }
-
-    /**
-     * Genehmigt werden müssen nur Urlaubsanträge der Auszubildenden.
-     * Krankmeldungen, Einträge der Festbesetzung und alles, was die
-     * Planungsverantwortlichen erfassen, gilt sofort.
-     */
-    const autoApprove =
-      data.type === "SICK" || data.personKind === "DESK" || canPlan(user.role);
 
     const [created] = await db
       .insert(absences)
@@ -143,50 +132,18 @@ export async function createAbsence(input: unknown) {
         startDate: data.startDate,
         endDate: data.endDate,
         reason: data.reason || null,
-        status: autoApprove ? "APPROVED" : "PENDING",
         requestedBy: user.id,
-        decidedBy: autoApprove ? user.id : null,
-        decidedAt: autoApprove ? new Date() : null,
       })
       .returning();
 
     await writeAudit(user, "absence.create", "absence", created.id, data);
     paths();
 
-    if (!autoApprove) {
-      return ok(`Antrag für ${formatRangeDe(data.startDate, data.endDate)} eingereicht.`);
-    }
     return ok(
       data.personKind === "DESK"
         ? `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}. Für diese Tage wird ganztägige Vertretung eingeplant.`
-        : `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}.`,
+        : `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}. Der Plan berücksichtigt das sofort.`,
     );
-  });
-}
-
-export async function decideAbsence(input: {
-  id: string;
-  status: "APPROVED" | "REJECTED";
-  note?: string;
-}) {
-  return run(async () => {
-    const user = await requirePlannerAction();
-    const [updated] = await db
-      .update(absences)
-      .set({
-        status: input.status,
-        decidedBy: user.id,
-        decidedAt: new Date(),
-        decisionNote: input.note ?? null,
-        updatedAt: new Date(),
-      })
-      .where(eq(absences.id, input.id))
-      .returning();
-    if (!updated) return fail("Eintrag nicht gefunden.");
-
-    await writeAudit(user, `absence.${input.status.toLowerCase()}`, "absence", input.id);
-    paths();
-    return ok(input.status === "APPROVED" ? "Genehmigt." : "Abgelehnt.");
   });
 }
 
@@ -197,12 +154,6 @@ export async function cancelAbsence(id: string) {
 
     const kind: PersonKind = entry.apprenticeId ? "APPRENTICE" : "DESK";
     const user = await assertCanEditPerson(kind, (entry.apprenticeId ?? entry.deskStaffId)!);
-
-    // Genehmigten Urlaub dürfen Azubis nicht selbst zurückziehen; die eigene
-    // Abwesenheit der Festbesetzung schon – sie war nie genehmigungspflichtig.
-    if (kind === "APPRENTICE" && entry.status === "APPROVED" && !canPlan(user.role)) {
-      return fail("Bereits genehmigte Einträge kann nur die Ausbildungsleitung entfernen.");
-    }
 
     await db.delete(absences).where(eq(absences.id, id));
     await writeAudit(user, "absence.delete", "absence", id, entry);
@@ -245,7 +196,6 @@ export async function listAbsences(filter: {
       dayPart: absences.dayPart,
       startDate: absences.startDate,
       endDate: absences.endDate,
-      status: absences.status,
       reason: absences.reason,
     })
     .from(absences)
@@ -275,7 +225,6 @@ export async function listAbsences(filter: {
     dayPart: row.dayPart,
     startDate: row.startDate,
     endDate: row.endDate,
-    status: row.status,
     reason: row.reason,
   }));
 }

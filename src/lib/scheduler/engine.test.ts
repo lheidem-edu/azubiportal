@@ -302,12 +302,44 @@ describe("Planungs-Engine", () => {
     const tuesday = result.days.find((d) => d.date === "2026-09-08")!;
     expect(tuesday.requiresFullDay).toBe(true);
     expect(tuesday.absentStaff).toEqual(["Person A"]);
-    expect(tuesday.duties).toHaveLength(1);
     expect(tuesday.duties[0].kind).toBe("FULL_DAY");
     expect(tuesday.duties[0].assigned).toHaveLength(3);
 
     const monday = result.days.find((d) => d.date === "2026-09-07")!;
     expect(monday.requiresFullDay).toBe(false);
+  });
+
+  it("plant an Ganztagstagen zusätzlich eine Pausenvertretung", () => {
+    // Wer ganztags die Zentrale übernimmt, braucht selbst Pausen.
+    const result = generatePlan(
+      baseInput({
+        deskAbsences: [{ staffId: "s1", startDate: "2026-09-08", endDate: "2026-09-08" }],
+      }),
+    );
+    const tuesday = result.days.find((d) => d.date === "2026-09-08")!;
+    expect(tuesday.duties.map((d) => d.kind)).toEqual(["FULL_DAY", "BREAK"]);
+
+    const fullDay = tuesday.duties[0].assigned.find((a) => a.rank === 1)!;
+    const breaks = tuesday.duties[1].assigned.find((a) => a.rank === 1)!;
+    expect(breaks).toBeDefined();
+    // Beides gleichzeitig geht nicht.
+    expect(breaks.apprenticeId).not.toBe(fullDay.apprenticeId);
+  });
+
+  it("teilt niemanden an einem Tag zweimal als Vertretung ein", () => {
+    const result = generatePlan(
+      baseInput({
+        rangeStart: "2026-09-07",
+        rangeEnd: "2026-09-11",
+        deskAbsences: [{ staffId: "s1", startDate: "2026-09-07", endDate: "2026-09-09" }],
+      }),
+    );
+    for (const day of result.days.filter((d) => d.isWorkday)) {
+      const primaries = day.duties
+        .flatMap((duty) => duty.assigned.filter((a) => a.rank === 1))
+        .map((a) => a.apprenticeId);
+      expect(new Set(primaries).size).toBe(primaries.length);
+    }
   });
 
   it("verteilt die Einsätze gleichmäßig", () => {

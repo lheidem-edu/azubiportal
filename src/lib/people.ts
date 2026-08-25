@@ -23,7 +23,6 @@ export type AbsenceRow = {
   dayPart: string;
   startDate: string;
   endDate: string;
-  status: string;
   reason: string | null;
 };
 
