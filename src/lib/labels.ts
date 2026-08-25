@@ -50,3 +50,16 @@ export function enumerateDe(items: string[]): string {
   if (items.length === 1) return items[0];
   return `${items.slice(0, -1).join(", ")} und ${items.at(-1)}`;
 }
+
+/**
+ * Beschreibt die Rolle innerhalb eines Dienstes. Wird der Dienst von einer
+ * Person aus einem anderen übernommen – etwa die Pausen an einem Ganztagstag –,
+ * steht das dabei, damit im Plan erkennbar bleibt, woher sie kommt.
+ */
+export function dutyRoleLabel(
+  rank: number,
+  derivedFrom?: { rank: number } | null,
+): string {
+  if (derivedFrom && rank === 1) return rankLabel(derivedFrom.rank);
+  return rankLabel(rank);
+}

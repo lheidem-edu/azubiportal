@@ -7,7 +7,8 @@ import { requirePlanner } from "@/lib/session";
 import { today } from "@/lib/dates";
 import { ApprenticeDialog } from "./apprentice-dialog";
 import { ApprenticeTable, type ApprenticeRow } from "./apprentice-table";
-import { SchoolTermForm, SchoolTermList } from "@/app/(app)/school/school-terms";
+import { SchoolTermForm } from "@/app/(app)/school/school-terms";
+import { SchoolMatrix, type SchoolTermEntry } from "./school-matrix";
 
 export const metadata = { title: "Auszubildende" };
 
@@ -45,10 +46,15 @@ export default async function ApprenticesAdminPage() {
   }));
 
   const options = people.map((p) => ({ id: p.id, name: p.displayName }));
-  const allTerms = people.flatMap((person) =>
+  const allTerms: SchoolTermEntry[] = people.flatMap((person) =>
     person.schoolTerms.map((term) => ({
-      ...term,
+      id: term.id,
+      apprenticeId: person.id,
       apprenticeName: person.displayName,
+      weekday: term.weekday,
+      validFrom: term.validFrom,
+      validTo: term.validTo,
+      intervalWeeks: term.intervalWeeks,
     })),
   );
 
@@ -85,10 +91,14 @@ export default async function ApprenticesAdminPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Alle Schultage</CardTitle>
+          <CardTitle className="text-base">Schultage im Überblick</CardTitle>
+          <CardDescription>
+            An diesen Wochentagen ist die Person in der Berufsschule und wird nicht eingeplant –
+            außer in den Schulferien.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <SchoolTermList rows={allTerms} showApprentice />
+          <SchoolMatrix people={options} terms={allTerms} />
         </CardContent>
       </Card>
     </>

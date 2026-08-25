@@ -274,6 +274,29 @@ export const publicHolidays = pgTable(
   (t) => [unique("public_holidays_date_region_unique").on(t.date, t.region)],
 );
 
+/**
+ * Schulferien. In dieser Zeit findet kein Berufsschulunterricht statt, die
+ * Auszubildenden stehen also für die Zentrale zur Verfügung.
+ */
+export const schoolHolidays = pgTable(
+  "school_holidays",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    schoolYear: text(),
+    startDate: date().notNull(),
+    endDate: date().notNull(),
+    region: text().notNull().default("NRW"),
+    isActive: boolean().notNull().default(true),
+    source: holidaySourceEnum().notNull().default("AUTO"),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("school_holidays_unique").on(t.region, t.startDate, t.endDate),
+    index("school_holidays_range_idx").on(t.startDate, t.endDate),
+  ],
+);
+
 export const companyClosures = pgTable(
   "company_closures",
   {
@@ -461,6 +484,7 @@ export type DeskShift = typeof deskShifts.$inferSelect;
 export type CoverageSlot = typeof coverageSlots.$inferSelect;
 export type PublicHoliday = typeof publicHolidays.$inferSelect;
 export type CompanyClosure = typeof companyClosures.$inferSelect;
+export type SchoolHoliday = typeof schoolHolidays.$inferSelect;
 export type Assignment = typeof assignments.$inferSelect;
 export type PlanRun = typeof planRuns.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;

@@ -47,6 +47,9 @@ wäre.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
   für jedes Jahr aus der Osterformel berechnet, auch weit in der Zukunft. Es
   gibt keinen Stichtag, ab dem der Kalender gepflegt werden müsste.
+- **Schulferien** – in den NRW-Ferien findet kein Berufsschulunterricht statt,
+  die Auszubildenden stehen dann auch an ihren Schultagen zur Verfügung. Die
+  Termine der Ferienordnung bis 2029/30 sind mitgeliefert.
 - **Alles änderbar** – Auszubildende, Zentrale-Besetzung, Pausenzeiten,
   Feiertage, Betriebsferien und Verteilungsregeln über die Verwaltung.
 
@@ -83,10 +86,15 @@ ist, genügt für die Entwicklung eine E-Mail-Adresse ohne Passwort. Die in
 `BOOTSTRAP_ADMIN_EMAILS` hinterlegten Adressen erhalten beim ersten Login
 automatisch die Rolle *Administrator*.
 
-`npm run db:seed` ohne `--demo` legt nur die Grunddaten an: Pausen-Slots
-(Frühstück 09:00–09:30, Mittag 12:00–12:45, Ganztags 08:00–17:00), die
-Standardeinstellungen und eine Zentrale-Besetzung Mo–Mi / Do–Fr, deren Namen
-anschließend in der Verwaltung angepasst werden. Feiertage müssen nicht
+`npm run db:seed` ohne `--demo` legt nur die Grunddaten an: die Pausen-Slots
+(Frühstück 09:00–09:30, Mittag 12:00–12:45), zwei Ganztags-Slots (Mo–Do
+07:30–16:15, Fr 07:30–15:30), die NRW-Ferienordnung, die Standardeinstellungen
+und eine Zentrale-Besetzung Mo–Mi / Do–Fr, deren Namen anschließend in der
+Verwaltung angepasst werden.
+
+Dass die Zentrale freitags kürzer besetzt ist, bildet das Slot-Modell ohne
+Sonderfall ab: Jeder Slot hat eigene Wochentage und Uhrzeiten. Nach demselben
+Muster lassen sich beliebige weitere Abweichungen anlegen. Feiertage müssen nicht
 angelegt werden – siehe unten.
 
 ## Microsoft Entra ID einrichten
@@ -220,6 +228,22 @@ Die Zeitpunkte stehen als Cron-Ausdrücke in der Umgebung:
 | `REMINDER_CRON` | `0 7 * * 1-5` | Morgenerinnerungen versenden |
 | `PLANNING_CRON` | `30 5 * * 1` | Plan für den Planungshorizont erzeugen |
 
+## Schulferien
+
+Ferien lassen sich – anders als Feiertage – nicht berechnen; sie werden vom
+Schulministerium festgelegt. Die Termine der
+[Ferienordnung für Nordrhein-Westfalen](https://www.schulministerium.nrw/ferienordnung-fuer-nordrhein-westfalen-fuer-die-schuljahre-bis-202930)
+sind bis zum Schuljahr 2029/30 in `src/lib/school-holidays-nrw.ts` hinterlegt
+und werden beim Seed in die Tabelle `school_holidays` geschrieben.
+
+Innerhalb dieser Zeiträume greifen die wiederkehrenden Berufsschultage nicht.
+Blockunterricht bleibt davon unberührt – der wird weiterhin als Abwesenheit
+erfasst.
+
+Unter *Verwaltung → Kalender* lassen sich Ferien ergänzen, entfernen und die
+mitgelieferte Ferienordnung erneut einlesen. Läuft der Datensatz irgendwann
+aus, ist das dort sichtbar.
+
 ## Feiertage
 
 Die gesetzlichen Feiertage in Nordrhein-Westfalen werden bei jeder Planung für
@@ -251,10 +275,10 @@ werden muss (Wochenende, Feiertag, Betriebsferien fallen heraus) und welchen
 übernimmt: normalerweise alle Pausen zusammen, bei Ausfall der Festbesetzung
 stattdessen der ganze Tag.
 
-Fällt die Festbesetzung aus, entstehen **zwei** Dienste an diesem Tag: die
-ganztägige Vertretung und zusätzlich die Pausenvertretung – denn wer den ganzen
-Tag die Zentrale übernimmt, braucht selbst Pausen. Beide werden mit
-verschiedenen Personen besetzt; niemand hat an einem Tag zwei Dienste.
+Fällt die Festbesetzung aus, wird ganztägig vertreten – und diese Person
+braucht selbst Pausen. Dafür wird kein zusätzlicher Platz vergeben: Die Pausen
+übernimmt der **1. Ersatz** derselben Einteilung. Im Plan steht das
+ausdrücklich dabei, damit erkennbar bleibt, woher die Person kommt.
 
 Anschließend wird pro Dienst ein Bewerberfeld gebildet: Wer eingestellt,
 planbar, nicht in der Schule und nicht abwesend ist. Weil der Pausendienst
@@ -319,6 +343,7 @@ src/
     scheduler/          Planungs-Engine, Verfügbarkeit, DB-Anbindung
     notify/             E-Mail- und Teams-Versand
     holidays.ts         NRW-Feiertage (Osterformel, für jedes Jahr)
+    school-holidays-nrw.ts  Ferienordnung NRW bis 2029/30
     calendar.ts         Feiertage + Anpassungen, Betriebsferien
     year-overview.ts    Datengrundlage der Jahresübersicht
     people.ts           Gemeinsame Begriffe für Azubis und Zentrale-Besetzung

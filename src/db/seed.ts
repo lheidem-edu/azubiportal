@@ -12,6 +12,7 @@ import {
   settings,
   users,
 } from "@/db/schema";
+import { importNrwSchoolHolidays } from "@/lib/calendar";
 import { SETTINGS_SCHEMAS } from "@/lib/settings";
 import { addDays, today } from "@/lib/dates";
 
@@ -43,21 +44,44 @@ async function seedSlots() {
       backupCount: 2,
       sortOrder: 20,
     },
+    /**
+     * Die Zentrale ist freitags kürzer besetzt als Montag bis Donnerstag –
+     * deshalb zwei Ganztags-Slots mit unterschiedlichen Wochentagen.
+     */
     {
-      key: "FULL_DAY",
-      label: "Ganztägige Vertretung",
+      key: "FULL_DAY_MO_DO",
+      label: "Ganztägige Vertretung (Mo–Do)",
       kind: "FULL_DAY" as const,
-      startTime: "08:00",
-      endTime: "17:00",
+      startTime: "07:30",
+      endTime: "16:15",
+      weekdays: [1, 2, 3, 4],
       weight: "4.00",
       backupCount: 2,
       sortOrder: 30,
+    },
+    {
+      key: "FULL_DAY_FR",
+      label: "Ganztägige Vertretung (Fr)",
+      kind: "FULL_DAY" as const,
+      startTime: "07:30",
+      endTime: "15:30",
+      weekdays: [5],
+      weight: "3.50",
+      backupCount: 2,
+      sortOrder: 31,
     },
   ];
   for (const slot of defaults) {
     await db.insert(coverageSlots).values(slot).onConflictDoNothing({ target: coverageSlots.key });
   }
   console.log(`✓ Vertretungs-Slots (${defaults.length})`);
+}
+
+async function seedSchoolHolidays() {
+  const result = await importNrwSchoolHolidays();
+  console.log(
+    `✓ Schulferien NRW bis ${result.until} (${result.created} neu angelegt)`,
+  );
 }
 
 async function seedSettings() {
@@ -157,6 +181,7 @@ async function seedDemo() {
 async function main() {
   console.log("Grunddaten werden angelegt …\n");
   await seedSlots();
+  await seedSchoolHolidays();
   await seedSettings();
   await seedDeskStaff();
   if (withDemo) await seedDemo();

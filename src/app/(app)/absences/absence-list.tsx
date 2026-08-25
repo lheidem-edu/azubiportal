@@ -20,6 +20,51 @@ const DAY_PART_LABEL: Record<string, string> = {
  * Eine Liste für Auszubildende und Zentrale-Besetzung gleichermaßen.
  * Auf dem Telefon steht jeder Eintrag als eigener Block untereinander.
  */
+/**
+ * Gruppiert die Einträge nach Person. In der Verwaltung stehen sonst alle
+ * Zeiträume durcheinander und man sucht sich die einer Person zusammen.
+ */
+export function AbsenceListByPerson({ rows }: { rows: AbsenceRow[] }) {
+  const groups = new Map<string, { name: string; kind: string; entries: AbsenceRow[] }>();
+  for (const row of rows) {
+    const key = `${row.personKind}:${row.personId}`;
+    const group = groups.get(key) ?? { name: row.personName, kind: row.personKind, entries: [] };
+    group.entries.push(row);
+    groups.set(key, group);
+  }
+  const sorted = [...groups.values()].sort(
+    (a, b) =>
+      Number(a.kind === "DESK") - Number(b.kind === "DESK") || a.name.localeCompare(b.name, "de"),
+  );
+
+  if (sorted.length === 0) {
+    return <p className="text-muted-foreground py-6 text-center text-sm">Keine Einträge.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {sorted.map((group) => (
+        <div key={group.name}>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-sm font-medium">{group.name}</span>
+            {group.kind === "DESK" && (
+              <Badge variant="secondary" className="h-5">
+                Zentrale
+              </Badge>
+            )}
+            <span className="text-muted-foreground text-xs">
+              {group.entries.length} {group.entries.length === 1 ? "Eintrag" : "Einträge"}
+            </span>
+          </div>
+          <div className="border-l-2 pl-3">
+            <AbsenceList rows={group.entries} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AbsenceList({
   rows,
   showPerson,

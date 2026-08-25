@@ -51,6 +51,11 @@ export function DayEditor({ day }: { day: BoardDay }) {
           <div key={duty.key} className="space-y-3">
             <div>
               <span className="text-sm font-medium">{duty.label}</span>
+              {duty.derivedFrom && (
+                <span className="text-muted-foreground ml-2 text-xs">
+                  übernimmt {rankLabel(duty.derivedFrom.rank)} der ganztägigen Vertretung
+                </span>
+              )}
               <div className="text-muted-foreground text-xs">
                 {duty.times
                   .map((time) => {
@@ -79,7 +84,7 @@ export function DayEditor({ day }: { day: BoardDay }) {
                   date={day.date}
                   slotIds={duty.slotIds}
                   value={entry.apprenticeId}
-                  disabled={pending}
+                  disabled={pending || Boolean(duty.derivedFrom)}
                   onChange={(apprenticeId) =>
                     execute(
                       () =>
@@ -133,7 +138,13 @@ export function DayEditor({ day }: { day: BoardDay }) {
               </div>
             ))}
 
-            {duty.missingRanks.length > 0 && (
+            {duty.derivedFrom && (
+              <p className="text-muted-foreground text-xs">
+                Wird nicht einzeln vergeben: Ändere den {rankLabel(duty.derivedFrom.rank)} der
+                ganztägigen Vertretung, dann wechselt auch die Pausenvertretung.
+              </p>
+            )}
+            {duty.missingRanks.length > 0 && !duty.derivedFrom && (
               <p className="text-muted-foreground text-xs">
                 Unbesetzt: {duty.missingRanks.map((rank) => rankLabel(rank)).join(", ")} – über
                 „Plan erzeugen&ldquo; wird automatisch nachbesetzt.

@@ -9,6 +9,7 @@ import {
   deskShifts,
   deskStaff,
   planRuns,
+  schoolHolidays,
 } from "@/db/schema";
 import { addDays, type IsoDate } from "@/lib/dates";
 import { resolveHolidays } from "@/lib/calendar";
@@ -41,6 +42,7 @@ export async function loadSchedulerInput(
     deskAbsenceRows,
     holidayRows,
     closureRows,
+    schoolHolidayRows,
     assignmentRows,
   ] = await Promise.all([
     db.query.apprentices.findMany({ orderBy: (a, { asc }) => [asc(a.displayName)] }),
@@ -88,6 +90,16 @@ export async function loadSchedulerInput(
       .select()
       .from(companyClosures)
       .where(and(lte(companyClosures.startDate, rangeEnd), gte(companyClosures.endDate, rangeStart))),
+    db
+      .select({ startDate: schoolHolidays.startDate, endDate: schoolHolidays.endDate })
+      .from(schoolHolidays)
+      .where(
+        and(
+          eq(schoolHolidays.isActive, true),
+          lte(schoolHolidays.startDate, rangeEnd),
+          gte(schoolHolidays.endDate, historyStart),
+        ),
+      ),
     db
       .select()
       .from(assignments)
@@ -143,6 +155,7 @@ export async function loadSchedulerInput(
       endDate: a.endDate,
     })),
     holidays: holidayRows,
+    schoolHolidays: schoolHolidayRows,
     closures: closureRows.map((c) => ({
       name: c.name,
       startDate: c.startDate,
@@ -377,6 +390,8 @@ export type BoardDuty = {
   key: string;
   label: string;
   kind: "BREAK" | "FULL_DAY";
+  /** Gesetzt, wenn der Dienst von einer Person aus einem anderen übernommen wird. */
+  derivedFrom?: { dutyKey: string; rank: number };
   slotIds: string[];
   times: { slotId: string; label: string; startTime: string; endTime: string }[];
   backupCount: number;
@@ -457,6 +472,7 @@ export async function getPlanBoard(rangeStart: IsoDate, rangeEnd: IsoDate): Prom
         key: duty.key,
         label: duty.label,
         kind: duty.kind,
+        derivedFrom: duty.derivedFrom,
         slotIds: duty.slots.map((s) => s.id),
         times: duty.slots.map((s) => ({
           slotId: s.id,

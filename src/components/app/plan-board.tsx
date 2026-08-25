@@ -139,6 +139,11 @@ function DutyBlock({
             .map((time) => `${formatTime(time.startTime)}–${formatTime(time.endTime)}`)
             .join(" · ")}
         </div>
+        {duty.derivedFrom && (
+          <div className="text-muted-foreground text-[11px] italic">
+            übernimmt {rankLabel(duty.derivedFrom.rank)}
+          </div>
+        )}
       </div>
 
       {duty.entries.length === 0 ? (
@@ -167,6 +172,11 @@ function DutyBlock({
               <span className="truncate">{entry.apprenticeName}</span>
               {entry.rank > 1 && (
                 <span className="text-[10px] whitespace-nowrap">({rankLabel(entry.rank)})</span>
+              )}
+              {duty.derivedFrom && entry.rank === 1 && (
+                <span className="text-[10px] whitespace-nowrap">
+                  ({rankLabel(duty.derivedFrom.rank)})
+                </span>
               )}
               {entry.isLocked && (
                 <Lock className="text-muted-foreground size-3 shrink-0" aria-label="gesperrt" />

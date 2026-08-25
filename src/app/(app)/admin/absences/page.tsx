@@ -5,7 +5,7 @@ import { requirePlanner } from "@/lib/session";
 import { today } from "@/lib/dates";
 import { listAbsences, listPeople } from "@/app/actions/absences";
 import { AbsenceForm } from "@/app/(app)/absences/absence-form";
-import { AbsenceList } from "@/app/(app)/absences/absence-list";
+import { AbsenceListByPerson } from "@/app/(app)/absences/absence-list";
 
 export const metadata = { title: "Abwesenheiten" };
 
@@ -37,7 +37,7 @@ export default async function AbsencesAdminPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <AbsenceList rows={current} showPerson />
+              <AbsenceListByPerson rows={current} />
             </CardContent>
           </Card>
 
@@ -46,7 +46,7 @@ export default async function AbsencesAdminPage() {
               <CardTitle className="text-base">Vergangen</CardTitle>
             </CardHeader>
             <CardContent>
-              <AbsenceList rows={past.slice(0, 50)} showPerson />
+              <AbsenceListByPerson rows={past.slice(0, 60)} />
             </CardContent>
           </Card>
         </div>

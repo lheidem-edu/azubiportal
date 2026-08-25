@@ -74,6 +74,7 @@ function baseInput(over: Partial<SchedulerInput> = {}): SchedulerInput {
     ],
     deskAbsences: [],
     holidays: [],
+    schoolHolidays: [],
     closures: [],
     existingAssignments: [],
     ...over,
@@ -195,6 +196,36 @@ describe("Planungs-Engine", () => {
     expect(tuesday.duties.flatMap((d) => d.assigned.map((a) => a.apprenticeId))).toContain("a");
   });
 
+  it("lässt Berufsschultage in den Schulferien entfallen", () => {
+    const withSchool = {
+      apprenticeId: "a",
+      weekday: 1,
+      validFrom: "2020-01-01",
+      validTo: null,
+      intervalWeeks: 1,
+      anchorWeek: null,
+    };
+    const ferien = generatePlan(
+      baseInput({
+        rangeStart: "2026-10-19", // Montag in den Herbstferien 2026
+        rangeEnd: "2026-10-19",
+        schoolTerms: [withSchool],
+        schoolHolidays: [{ startDate: "2026-10-17", endDate: "2026-10-31" }],
+      }),
+    );
+    expect(ferien.days[0].duties[0].availableCount).toBe(4);
+
+    const unterricht = generatePlan(
+      baseInput({
+        rangeStart: "2026-10-19",
+        rangeEnd: "2026-10-19",
+        schoolTerms: [withSchool],
+        schoolHolidays: [],
+      }),
+    );
+    expect(unterricht.days[0].duties[0].availableCount).toBe(3);
+  });
+
   it("berücksichtigt den 14-tägigen Schulrhythmus", () => {
     const result = generatePlan(
       baseInput({
@@ -309,8 +340,9 @@ describe("Planungs-Engine", () => {
     expect(monday.requiresFullDay).toBe(false);
   });
 
-  it("plant an Ganztagstagen zusätzlich eine Pausenvertretung", () => {
-    // Wer ganztags die Zentrale übernimmt, braucht selbst Pausen.
+  it("lässt an Ganztagstagen den 1. Ersatz die Pausen übernehmen", () => {
+    // Wer ganztags die Zentrale übernimmt, braucht selbst Pausen – dafür wird
+    // kein eigener Platz vergeben, sondern der 1. Ersatz eingeteilt.
     const result = generatePlan(
       baseInput({
         deskAbsences: [{ staffId: "s1", startDate: "2026-09-08", endDate: "2026-09-08" }],
@@ -319,14 +351,19 @@ describe("Planungs-Engine", () => {
     const tuesday = result.days.find((d) => d.date === "2026-09-08")!;
     expect(tuesday.duties.map((d) => d.kind)).toEqual(["FULL_DAY", "BREAK"]);
 
-    const fullDay = tuesday.duties[0].assigned.find((a) => a.rank === 1)!;
-    const breaks = tuesday.duties[1].assigned.find((a) => a.rank === 1)!;
-    expect(breaks).toBeDefined();
-    // Beides gleichzeitig geht nicht.
-    expect(breaks.apprenticeId).not.toBe(fullDay.apprenticeId);
+    const fullDayDuty = tuesday.duties[0];
+    const breakDuty = tuesday.duties[1];
+    expect(breakDuty.derivedFrom).toEqual({ dutyKey: fullDayDuty.key, rank: 2 });
+
+    const firstBackup = fullDayDuty.assigned.find((a) => a.rank === 2)!;
+    const breakPrimary = breakDuty.assigned.find((a) => a.rank === 1)!;
+    expect(breakPrimary.apprenticeId).toBe(firstBackup.apprenticeId);
+
+    // Für die Pausen gibt es an solchen Tagen keine eigenen Ersatzleute.
+    expect(breakDuty.assigned.map((a) => a.rank)).toEqual([1]);
   });
 
-  it("teilt niemanden an einem Tag zweimal als Vertretung ein", () => {
+  it("teilt niemanden an einem Tag zweimal frei ein", () => {
     const result = generatePlan(
       baseInput({
         rangeStart: "2026-09-07",
@@ -335,7 +372,10 @@ describe("Planungs-Engine", () => {
       }),
     );
     for (const day of result.days.filter((d) => d.isWorkday)) {
+      // Abgeleitete Dienste zählen nicht mit – dort ist die Person gewollt
+      // dieselbe wie im Quelldienst.
       const primaries = day.duties
+        .filter((duty) => !duty.derivedFrom)
         .flatMap((duty) => duty.assigned.filter((a) => a.rank === 1))
         .map((a) => a.apprenticeId);
       expect(new Set(primaries).size).toBe(primaries.length);

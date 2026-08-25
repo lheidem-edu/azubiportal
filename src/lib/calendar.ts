@@ -1,7 +1,11 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { companyClosures, publicHolidays } from "@/db/schema";
+import { companyClosures, publicHolidays, schoolHolidays } from "@/db/schema";
 import { nrwHolidays } from "@/lib/holidays";
+import {
+  NRW_SCHOOL_HOLIDAYS,
+  NRW_SCHOOL_HOLIDAYS_UNTIL,
+} from "@/lib/school-holidays-nrw";
 import type { IsoDate } from "@/lib/dates";
 
 /**
@@ -96,6 +100,45 @@ export async function resolveHolidays(
 ): Promise<{ date: IsoDate; name: string }[]> {
   const all = await listEffectiveHolidays(from, to, region);
   return all.filter((h) => h.isActive).map(({ date, name }) => ({ date, name }));
+}
+
+/** Schulferien eines Zeitraums – in dieser Zeit ist keine Berufsschule. */
+export async function listSchoolHolidays(from: IsoDate, to: IsoDate, region = "NRW") {
+  return db
+    .select()
+    .from(schoolHolidays)
+    .where(
+      and(
+        eq(schoolHolidays.region, region),
+        lte(schoolHolidays.startDate, to),
+        gte(schoolHolidays.endDate, from),
+      ),
+    )
+    .orderBy(schoolHolidays.startDate);
+}
+
+/**
+ * Schreibt die hinterlegten NRW-Ferientermine in die Datenbank. Vorhandene
+ * Einträge bleiben unberührt, damit eigene Anpassungen erhalten bleiben.
+ */
+export async function importNrwSchoolHolidays() {
+  let created = 0;
+  for (const entry of NRW_SCHOOL_HOLIDAYS) {
+    const inserted = await db
+      .insert(schoolHolidays)
+      .values({
+        name: entry.name,
+        schoolYear: entry.schoolYear,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        region: "NRW",
+        source: "AUTO",
+      })
+      .onConflictDoNothing()
+      .returning({ id: schoolHolidays.id });
+    created += inserted.length;
+  }
+  return { created, until: NRW_SCHOOL_HOLIDAYS_UNTIL };
 }
 
 export async function listClosures() {

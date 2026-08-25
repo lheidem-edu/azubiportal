@@ -7,14 +7,19 @@ import type {
   UnavailabilityReason,
 } from "./types";
 
+export type DateRange = { startDate: IsoDate; endDate: IsoDate };
+
 export type AvailabilityLookup = {
   schoolTermsByApprentice: Map<string, SchedulerSchoolTerm[]>;
   absencesByApprentice: Map<string, SchedulerAbsence[]>;
+  /** Schulferien – in dieser Zeit fällt der Berufsschulunterricht aus. */
+  schoolHolidays: DateRange[];
 };
 
 export function buildAvailabilityLookup(
   schoolTerms: SchedulerSchoolTerm[],
   absences: SchedulerAbsence[],
+  schoolHolidays: DateRange[] = [],
 ): AvailabilityLookup {
   const schoolTermsByApprentice = new Map<string, SchedulerSchoolTerm[]>();
   for (const term of schoolTerms) {
@@ -28,7 +33,7 @@ export function buildAvailabilityLookup(
     list.push(absence);
     absencesByApprentice.set(absence.apprenticeId, list);
   }
-  return { schoolTermsByApprentice, absencesByApprentice };
+  return { schoolTermsByApprentice, absencesByApprentice, schoolHolidays };
 }
 
 export function isEmployedOn(apprentice: SchedulerApprentice, date: IsoDate): boolean {
@@ -37,9 +42,21 @@ export function isEmployedOn(apprentice: SchedulerApprentice, date: IsoDate): bo
   return true;
 }
 
-/** Greift an diesem Tag ein wiederkehrender Berufsschultag? */
-export function isSchoolDay(terms: SchedulerSchoolTerm[] | undefined, date: IsoDate): boolean {
+export function isSchoolHoliday(holidays: DateRange[], date: IsoDate): boolean {
+  return holidays.some((range) => date >= range.startDate && date <= range.endDate);
+}
+
+/**
+ * Greift an diesem Tag ein wiederkehrender Berufsschultag?
+ * In den Schulferien nicht – dann sind die Auszubildenden im Betrieb.
+ */
+export function isSchoolDay(
+  terms: SchedulerSchoolTerm[] | undefined,
+  date: IsoDate,
+  schoolHolidays: DateRange[] = [],
+): boolean {
   if (!terms?.length) return false;
+  if (isSchoolHoliday(schoolHolidays, date)) return false;
   const weekday = isoWeekday(date);
   return terms.some((term) => {
     if (term.weekday !== weekday) return false;
@@ -77,7 +94,7 @@ export function checkAvailability(
 ): AvailabilityCheck {
   if (!apprentice.isPlannable) return { available: false, reason: "NOT_PLANNABLE" };
   if (!isEmployedOn(apprentice, date)) return { available: false, reason: "NOT_EMPLOYED" };
-  if (isSchoolDay(lookup.schoolTermsByApprentice.get(apprentice.id), date)) {
+  if (isSchoolDay(lookup.schoolTermsByApprentice.get(apprentice.id), date, lookup.schoolHolidays)) {
     return { available: false, reason: "SCHOOL" };
   }
   const absences = lookup.absencesByApprentice.get(apprentice.id) ?? [];

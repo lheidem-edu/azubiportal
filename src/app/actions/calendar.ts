@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { companyClosures, publicHolidays } from "@/db/schema";
+import { companyClosures, publicHolidays, schoolHolidays } from "@/db/schema";
 import {
   fail,
   isoDateSchema,
@@ -14,6 +14,7 @@ import {
   writeAudit,
 } from "@/lib/action-utils";
 import { nrwHolidays } from "@/lib/holidays";
+import { importNrwSchoolHolidays } from "@/lib/calendar";
 import { formatRangeDe } from "@/lib/dates";
 
 function paths() {
@@ -143,5 +144,61 @@ export async function deleteClosure(id: string) {
     await writeAudit(user, "closure.delete", "company_closure", id);
     paths();
     return ok("Eintrag gelöscht.");
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Schulferien                                                                */
+/* -------------------------------------------------------------------------- */
+
+/** Liest die mitgelieferte Ferienordnung ein; vorhandene Einträge bleiben. */
+export async function importSchoolHolidays() {
+  return run(async () => {
+    const user = await requirePlannerAction();
+    const result = await importNrwSchoolHolidays();
+    await writeAudit(user, "school_holidays.import", "school_holiday", undefined, result);
+    paths();
+    return ok(
+      result.created > 0
+        ? `${result.created} Ferienzeiträume ergänzt.`
+        : "Alle hinterlegten Ferientermine waren bereits vorhanden.",
+    );
+  });
+}
+
+const schoolHolidaySchema = z
+  .object({
+    name: z.string().min(2, "Bitte eine Bezeichnung angeben."),
+    startDate: isoDateSchema,
+    endDate: isoDateSchema,
+  })
+  .refine((v) => v.startDate <= v.endDate, {
+    message: "Das Enddatum darf nicht vor dem Startdatum liegen.",
+    path: ["endDate"],
+  });
+
+export async function createSchoolHoliday(input: unknown) {
+  return run(async () => {
+    const data = schoolHolidaySchema.parse(input);
+    const user = await requirePlannerAction();
+    const [created] = await db
+      .insert(schoolHolidays)
+      .values({ ...data, region: "NRW", source: "MANUAL" })
+      .onConflictDoNothing()
+      .returning();
+    if (!created) return fail("Für diesen Zeitraum gibt es bereits einen Eintrag.");
+    await writeAudit(user, "school_holiday.create", "school_holiday", created.id, data);
+    paths();
+    return ok("Ferien ergänzt.");
+  });
+}
+
+export async function deleteSchoolHoliday(id: string) {
+  return run(async () => {
+    const user = await requirePlannerAction();
+    await db.delete(schoolHolidays).where(eq(schoolHolidays.id, id));
+    await writeAudit(user, "school_holiday.delete", "school_holiday", id);
+    paths();
+    return ok("Ferien entfernt. In diesem Zeitraum gelten die Berufsschultage wieder.");
   });
 }

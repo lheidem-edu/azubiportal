@@ -2,7 +2,7 @@ import { and, gte, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { absences, apprentices, deskShifts, deskStaff, schoolTerms } from "@/db/schema";
 import { eachDay, isoWeekday, type IsoDate } from "@/lib/dates";
-import { listClosures, listEffectiveHolidays } from "@/lib/calendar";
+import { listClosures, listEffectiveHolidays, listSchoolHolidays } from "@/lib/calendar";
 import { isSchoolDay } from "@/lib/scheduler/availability";
 import {
   MARK_LABEL,
@@ -51,8 +51,16 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
   const from: IsoDate = `${year}-01-01`;
   const to: IsoDate = `${year}-12-31`;
 
-  const [apprenticeRows, staffRows, absenceRows, schoolRows, shiftRows, holidays, closures] =
-    await Promise.all([
+  const [
+    apprenticeRows,
+    staffRows,
+    absenceRows,
+    schoolRows,
+    shiftRows,
+    holidays,
+    closures,
+    schoolHolidayRows,
+  ] = await Promise.all([
       db
         .select({ id: apprentices.id, name: apprentices.displayName })
         .from(apprentices)
@@ -75,6 +83,7 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
       db.select().from(deskShifts).where(lte(deskShifts.validFrom, to)),
       listEffectiveHolidays(from, to),
       listClosures(),
+      listSchoolHolidays(from, to),
     ]);
 
   const holidayByDate = new Map(
@@ -138,7 +147,7 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
       if (terms?.length) {
         for (const day of days) {
           if (day.isWeekend || day.holiday) continue;
-          if (isSchoolDay(terms, day.date)) {
+          if (isSchoolDay(terms, day.date, schoolHolidayRows)) {
             marks[day.date] = {
               kind: "SCHOOL",
               label: "Berufsschule",

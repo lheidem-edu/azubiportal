@@ -108,19 +108,32 @@ export function describeDays(input: SchedulerInput): DayContext[] {
       day.requiresFullDay = true;
     }
 
-    /**
-     * Fällt die Festbesetzung aus, wird die Zentrale ganztägig vertreten –
-     * und diese Person braucht selbst Pausen. Deshalb werden an solchen Tagen
-     * beide Dienste besetzt: die ganztägige Vertretung zuerst, danach die
-     * Pausenvertretung für sie.
-     */
     const forWeekday = (slots: SchedulerSlot[]) =>
       slots.filter((slot) => slot.weekdays.includes(weekday));
 
-    day.duties = [
-      ...(day.requiresFullDay ? buildDuties(forWeekday(fullDaySlots), true, options) : []),
-      ...buildDuties(forWeekday(breakSlots), false, options),
-    ];
+    if (day.requiresFullDay) {
+      /**
+       * Fällt die Festbesetzung aus, vertritt jemand ganztägig – und braucht
+       * dabei selbst Pausen. Diese übernimmt der 1. Ersatz derselben
+       * Einteilung; ein eigener Vertretungsplatz wird dafür nicht vergeben.
+       */
+      const fullDayDuties = buildDuties(forWeekday(fullDaySlots), true, options);
+      const breakDuties = buildDuties(forWeekday(breakSlots), false, options);
+      const source = fullDayDuties[0];
+
+      day.duties = [
+        ...fullDayDuties,
+        ...(source
+          ? breakDuties.map((duty) => ({
+              ...duty,
+              backupCount: 0,
+              derivedFrom: { dutyKey: source.key, rank: 2 },
+            }))
+          : breakDuties),
+      ];
+    } else {
+      day.duties = buildDuties(forWeekday(breakSlots), false, options);
+    }
 
     if (day.duties.length === 0) {
       day.isWorkday = false;
@@ -189,7 +202,11 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
     a.displayName.localeCompare(b.displayName, "de"),
   );
   const apprenticeById = new Map(apprentices.map((a) => [a.id, a]));
-  const lookup = buildAvailabilityLookup(input.schoolTerms, input.absences);
+  const lookup = buildAvailabilityLookup(
+    input.schoolTerms,
+    input.absences,
+    input.schoolHolidays,
+  );
   const slotsById = new Map(input.slots.map((s) => [s.id, s]));
 
   /* ---- Lastkonto initialisieren --------------------------------------- */
@@ -260,6 +277,9 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
     const anyToday = new Set<string>();
     const kept = keepByDate.get(context.date) ?? [];
 
+    /** Bereits besetzte Dienste des Tages, für abgeleitete Dienste. */
+    const assignedByDutyKey = new Map<string, Map<number, string>>();
+
     for (const duty of context.duties) {
       dutiesPlanned += 1;
       const dutySlotIds = new Set(duty.slots.map((s) => s.id));
@@ -283,6 +303,20 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
         if (rank > totalRanks) continue;
         chosen.set(rank, { apprenticeId, isLocked: true, isManual: true });
         taken.add(apprenticeId);
+      }
+
+      /**
+       * Abgeleiteter Dienst: Die Person steht schon fest, es wird nicht neu
+       * ausgewählt. Fehlt sie im Quelldienst, bleibt der Platz unbesetzt –
+       * dann war schlicht niemand mehr verfügbar.
+       */
+      if (duty.derivedFrom) {
+        const source = assignedByDutyKey.get(duty.derivedFrom.dutyKey);
+        const apprenticeId = source?.get(duty.derivedFrom.rank);
+        if (apprenticeId && !chosen.has(1)) {
+          chosen.set(1, { apprenticeId, isLocked: false, isManual: false });
+          taken.add(apprenticeId);
+        }
       }
 
       for (let rank = 1; rank <= totalRanks; rank++) {
@@ -310,6 +344,11 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
         chosen.set(rank, { apprenticeId: picked.id, isLocked: false, isManual: false });
         taken.add(picked.id);
       }
+
+      assignedByDutyKey.set(
+        duty.key,
+        new Map([...chosen.entries()].map(([rank, entry]) => [rank, entry.apprenticeId])),
+      );
 
       const assigned: DutyPlan["assigned"] = [];
       for (const rank of [...chosen.keys()].sort((a, b) => a - b)) {
@@ -356,6 +395,7 @@ export function generatePlan(input: SchedulerInput): SchedulerResult {
         key: duty.key,
         label: duty.label,
         kind: duty.kind,
+        derivedFrom: duty.derivedFrom,
         slotIds: duty.slots.map((s) => s.id),
         times: duty.slots.map((s) => ({
           slotId: s.id,

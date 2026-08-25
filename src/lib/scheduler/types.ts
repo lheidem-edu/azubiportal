@@ -58,6 +58,12 @@ export type SchedulerDeskAbsence = {
 
 export type SchedulerHoliday = { date: IsoDate; name: string };
 
+/** Schulferien – setzen die wiederkehrenden Berufsschultage aus. */
+export type SchedulerSchoolHoliday = {
+  startDate: IsoDate;
+  endDate: IsoDate;
+};
+
 export type SchedulerClosure = {
   name: string;
   startDate: IsoDate;
@@ -114,6 +120,7 @@ export type SchedulerInput = {
   deskShifts: SchedulerDeskShift[];
   deskAbsences: SchedulerDeskAbsence[];
   holidays: SchedulerHoliday[];
+  schoolHolidays: SchedulerSchoolHoliday[];
   closures: SchedulerClosure[];
   /** Einsätze im Zeitraum + Historie davor. */
   existingAssignments: ExistingAssignment[];
@@ -146,6 +153,12 @@ export type Duty = {
   backupCount: number;
   /** Gewicht des gesamten Dienstes für den Lastenausgleich. */
   weight: number;
+  /**
+   * Dieser Dienst wird nicht frei besetzt, sondern von einer Person aus einem
+   * anderen Dienst desselben Tages übernommen. So vertritt an Ganztagstagen
+   * der 1. Ersatz die Pausen der ganztägigen Vertretung.
+   */
+  derivedFrom?: { dutyKey: string; rank: number };
 };
 
 export type PlannedAssignment = {
@@ -163,6 +176,8 @@ export type DutyPlan = {
   key: string;
   label: string;
   kind: SlotKind;
+  /** Gesetzt, wenn der Dienst aus einem anderen übernommen wird. */
+  derivedFrom?: { dutyKey: string; rank: number };
   slotIds: string[];
   /** Zeitfenster des Dienstes – bei zusammengefassten Pausen mehrere. */
   times: { slotId: string; label: string; startTime: string; endTime: string }[];
