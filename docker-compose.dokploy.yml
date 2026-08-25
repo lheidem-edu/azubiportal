@@ -50,7 +50,7 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["node", "/app/dist/worker.cjs"]
+    command: ["node", "/app/worker.mjs"]
     # Der Worker ruft nur den Cron-Endpunkt auf – Migrationen macht `app`.
     environment:
       TZ: Europe/Berlin

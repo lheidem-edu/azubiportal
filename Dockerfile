@@ -15,15 +15,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
-# Migration und Worker zu je einer Datei bündeln. `pg` bleibt extern, weil es
-# native Bestandteile hat und ohnehin im Standalone-Build enthalten ist.
+# Die Migration zu einer Datei bündeln. `pg` bleibt extern, weil es native
+# Bestandteile hat und ohnehin im Standalone-Build enthalten ist.
+#
+# Der Worker wird bewusst NICHT gebündelt: node-cron ermittelt den Pfad zu
+# seinem Hintergrundprozess über `import.meta.url` und braucht dafür seine
+# echten Dateien auf der Platte.
 RUN npx esbuild src/db/migrate.ts \
       --bundle --platform=node --format=cjs --target=node24 \
       --external:pg --external:pg-native \
-      --outfile=dist/migrate.cjs \
- && npx esbuild worker.mjs \
-      --bundle --platform=node --format=cjs --target=node24 \
-      --outfile=dist/worker.cjs
+      --outfile=dist/migrate.cjs
 
 FROM node:24-alpine AS runner
 WORKDIR /app
@@ -43,6 +44,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nextjs:nodejs /app/worker.mjs ./worker.mjs
+# node-cron hat keine eigenen Abhängigkeiten, der Ordner genügt.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/node-cron ./node_modules/node-cron
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 

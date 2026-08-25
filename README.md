@@ -207,6 +207,8 @@ Entwicklungs-Login.
 ### Zeitgesteuerte Aufgaben
 
 Der Worker (`worker.mjs`) ruft `POST /api/cron?job=…` mit dem `CRON_SECRET` auf.
+Er läuft als eigener Container aus demselben Abbild, nur mit anderem Befehl
+(`node /app/worker.mjs`), und führt selbst keine Migrationen aus.
 Die Zeitpunkte stehen als Cron-Ausdrücke in der Umgebung:
 
 | Variable | Standard | Aufgabe |
