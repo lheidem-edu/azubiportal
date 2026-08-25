@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { createApprentice, updateApprentice } from "@/app/actions/apprentices";
 import { useAction } from "@/lib/use-action";
+import { numberFieldValue } from "@/lib/form-utils";
 import { today } from "@/lib/dates";
 
 export type ApprenticeFormValues = {
@@ -177,14 +178,17 @@ export function ApprenticeDialog({ initial }: { initial?: ApprenticeFormValues }
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="loadFactor">Einsatzfaktor</Label>
+              {/* `step="any"`: Ein Raster ab `min` würde runde Werte ungültig
+                  machen und das Absenden ohne sichtbaren Grund blockieren. */}
               <Input
                 id="loadFactor"
                 type="number"
-                step="0.1"
+                step="any"
                 min="0.1"
                 max="3"
-                value={values.loadFactor}
-                onChange={(e) => set("loadFactor", Number(e.target.value))}
+                required
+                value={numberFieldValue(values.loadFactor)}
+                onChange={(e) => set("loadFactor", e.target.valueAsNumber)}
               />
               <p className="text-muted-foreground text-xs">
                 1,0 = normal · 0,5 = halb so oft (z.B. Teilzeit)
@@ -195,9 +199,10 @@ export function ApprenticeDialog({ initial }: { initial?: ApprenticeFormValues }
               <Input
                 id="loadOffset"
                 type="number"
-                step="1"
-                value={values.loadOffset}
-                onChange={(e) => set("loadOffset", Number(e.target.value))}
+                step="any"
+                required
+                value={numberFieldValue(values.loadOffset)}
+                onChange={(e) => set("loadOffset", e.target.valueAsNumber)}
               />
               <p className="text-muted-foreground text-xs">
                 Vorbelastung für später Hinzugekommene, damit sie nicht sofort dauerhaft dran sind.

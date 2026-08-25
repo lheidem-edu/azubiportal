@@ -37,6 +37,7 @@ import { TableScroll } from "@/components/app/table-scroll";
 import { ConfirmButton } from "@/components/app/confirm-button";
 import { createSlot, deleteSlot, setSlotActive, updateSlot } from "@/app/actions/slots";
 import { useAction } from "@/lib/use-action";
+import { numberFieldValue } from "@/lib/form-utils";
 import { formatTime, weekdayShort } from "@/lib/dates";
 import { SLOT_KIND_HINT, SLOT_KIND_LABEL } from "@/lib/labels";
 
@@ -164,6 +165,12 @@ function SlotDialog({ initial }: { initial?: SlotRow }) {
   const [values, setValues] = useState<SlotRow>(initial ?? EMPTY);
   const isEdit = Boolean(initial?.id);
 
+  /**
+   * Ein geleertes Zahlenfeld soll leer bleiben und nicht auf 0 springen –
+   * sonst lässt sich kein neuer Wert eintippen. `valueAsNumber` liefert dafür
+   * NaN, das hier bis zum Absenden stehen bleibt; der Browser verhindert über
+   * `required` das Absenden eines leeren Feldes.
+   */
   function set<K extends keyof SlotRow>(key: K, value: SlotRow[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
@@ -303,19 +310,27 @@ function SlotDialog({ initial }: { initial?: SlotRow }) {
                 type="number"
                 min="0"
                 max="5"
-                value={values.backupCount}
-                onChange={(e) => set("backupCount", Number(e.target.value))}
+                required
+                value={numberFieldValue(values.backupCount)}
+                onChange={(e) => set("backupCount", e.target.valueAsNumber)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="weight">Gewicht</Label>
+              {/*
+                `step` bewusst auf "any": Mit einem Schrittraster ab `min`
+                wären runde Werte wie 1 oder 4 ungültig, und der Browser
+                verweigert dann stillschweigend das Absenden des Formulars.
+              */}
               <Input
                 id="weight"
                 type="number"
-                step="0.25"
+                step="any"
                 min="0.1"
-                value={values.weight}
-                onChange={(e) => set("weight", Number(e.target.value))}
+                max="20"
+                required
+                value={numberFieldValue(values.weight)}
+                onChange={(e) => set("weight", e.target.valueAsNumber)}
               />
             </div>
             <div className="space-y-1.5">
@@ -324,8 +339,9 @@ function SlotDialog({ initial }: { initial?: SlotRow }) {
                 id="sortOrder"
                 type="number"
                 min="0"
-                value={values.sortOrder}
-                onChange={(e) => set("sortOrder", Number(e.target.value))}
+                required
+                value={numberFieldValue(values.sortOrder)}
+                onChange={(e) => set("sortOrder", e.target.valueAsNumber)}
               />
             </div>
           </div>
