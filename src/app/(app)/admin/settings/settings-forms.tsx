@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveSettings, testSmtpAction, testTeamsAction } from "@/app/actions/settings";
 import { useAction } from "@/lib/use-action";
+import { numberFieldValue } from "@/lib/form-utils";
 import { enumerateDe } from "@/lib/labels";
 import type {
   generalSettingsSchema,
@@ -95,17 +96,17 @@ export function GeneralSettingsForm({ initial }: { initial: General }) {
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Planungshorizont (Tage)"
-              hint="Wie weit im Voraus der automatische Planlauf plant."
+              label="Planungshorizont (Arbeitswochen)"
+              hint="Wie viele Wochen der automatische Planlauf im Voraus plant, gerechnet ab der kommenden Woche."
             >
               <Input
                 type="number"
-                min={7}
-                max={365}
-                value={values.planningHorizonDays}
-                onChange={(e) =>
-                  setValues({ ...values, planningHorizonDays: Number(e.target.value) })
-                }
+                min={1}
+                max={26}
+                step="any"
+                required
+                value={numberFieldValue(values.planningWeeks)}
+                onChange={(e) => setValues({ ...values, planningWeeks: e.target.valueAsNumber })}
               />
             </Field>
             <Field

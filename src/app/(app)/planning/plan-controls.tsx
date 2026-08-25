@@ -15,11 +15,11 @@ import { formatDateDe } from "@/lib/dates";
 export function PlanControls({
   rangeStart,
   rangeEnd,
-  horizonDays,
+  planningWeeks,
 }: {
   rangeStart: string;
   rangeEnd: string;
-  horizonDays: number;
+  planningWeeks: number;
 }) {
   const router = useRouter();
   const { pending, execute } = useAction();
@@ -87,7 +87,7 @@ export function PlanControls({
             })
           }
         >
-          Komplett bis Tag {horizonDays}
+          Nächste {planningWeeks} {planningWeeks === 1 ? "Arbeitswoche" : "Arbeitswochen"}
         </Button>
 
         <ConfirmButton

@@ -13,7 +13,7 @@ import {
   run,
   writeAudit,
 } from "@/lib/action-utils";
-import { addDays, formatDateDe, formatRangeDe } from "@/lib/dates";
+import { addDays, formatRangeDe, nextWorkWeeks } from "@/lib/dates";
 import { applyPlan, loadSchedulerInput, previewPlan } from "@/lib/scheduler/service";
 import { buildAvailabilityLookup, checkAvailability } from "@/lib/scheduler/availability";
 import { getSetting } from "@/lib/settings";
@@ -72,18 +72,17 @@ export async function generatePlanAction(input: unknown) {
   });
 }
 
-/** Plant den kompletten konfigurierten Horizont ab heute. */
+/** Plant die eingestellte Zahl an Arbeitswochen ab der kommenden Woche. */
 export async function generateHorizonAction() {
   return run(async () => {
     const user = await requirePlannerAction();
     const general = await getSetting("general");
-    const start = new Date().toISOString().slice(0, 10);
-    const end = addDays(start, general.planningHorizonDays);
+    const { start, end } = nextWorkWeeks(general.planningWeeks);
     const result = await applyPlan(start, end, user.id);
     await writeAudit(user, "plan.apply_horizon", "plan_run", result.planRunId, result.stats);
     paths();
     return ok(
-      `Plan bis ${formatDateDe(end)} erzeugt: ${result.stats.slotsPlanned} Einteilungen.`,
+      `${formatRangeDe(start, end)} geplant: ${result.stats.slotsPlanned} Einteilungen.`,
       { issues: result.issues, stats: result.stats },
     );
   });

@@ -19,6 +19,7 @@ import {
   formatDateDe,
   formatDateLongDe,
   formatTime,
+  nextWorkWeeks,
   today,
   weekdayLabel,
   type IsoDate,
@@ -53,8 +54,8 @@ export default async function DashboardPage() {
   const upcomingGaps = board.filter(
     (d) => d.isWorkday && d.duties.some((duty) => duty.missingRanks.includes(1)),
   );
-  const horizonEnd = addDays(day, general.planningHorizonDays);
-  const planIncomplete = !planEnd || planEnd < addDays(day, 7);
+  const horizonEnd = nextWorkWeeks(general.planningWeeks, day).end;
+  const planIncomplete = !planEnd || planEnd < horizonEnd;
 
   return (
     <>

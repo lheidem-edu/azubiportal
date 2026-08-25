@@ -13,8 +13,11 @@ import { settings } from "@/db/schema";
 export const generalSettingsSchema = z.object({
   companyName: z.string().default("Zentrale"),
   region: z.string().default("NRW"),
-  /** Wie viele Tage im Voraus die Automatik plant. */
-  planningHorizonDays: z.number().int().min(7).max(365).default(42),
+  /**
+   * Wie viele Arbeitswochen die Automatik im Voraus plant, gerechnet ab der
+   * kommenden Woche.
+   */
+  planningWeeks: z.number().int().min(1).max(26).default(2),
   /** Wie viele Tage in die Vergangenheit für den Lastenausgleich zählen. */
   fairnessWindowDays: z.number().int().min(0).max(730).default(180),
 });

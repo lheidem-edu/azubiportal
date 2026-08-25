@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { apprentices, deskStaff, users, type Role } from "@/db/schema";
 import { randomBytes } from "node:crypto";
 import { applyEntraEnvDefaults, readEntraConfig } from "@/lib/entra";
+import { isEmailAllowed } from "@/lib/access";
 
 declare module "next-auth" {
   interface Session {
@@ -58,6 +59,9 @@ async function upsertUser(input: {
   image?: string | null;
 }) {
   const email = input.email.toLowerCase();
+
+  // Vor allem anderen: Gehört die Adresse überhaupt zum Betrieb?
+  if (!isEmailAllowed(email)) return null;
   const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
 
   if (existing) {
@@ -161,7 +165,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             credentials: { email: { label: "E-Mail", type: "email" } },
             authorize: async (credentials) => {
               const email = String(credentials?.email ?? "").toLowerCase();
-              if (!email.includes("@")) return null;
+              if (!email.includes("@") || !isEmailAllowed(email)) return null;
               const user = await upsertUser({ email, name: email.split("@")[0] });
               if (!user) return null;
               return { id: user.id, email: user.email, name: user.name };

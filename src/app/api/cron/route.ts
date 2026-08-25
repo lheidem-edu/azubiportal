@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addDays, today } from "@/lib/dates";
+import { nextWorkWeeks, today } from "@/lib/dates";
 import { dispatchDailyReminders } from "@/lib/notify";
 import { applyPlan } from "@/lib/scheduler/service";
 import { getSetting } from "@/lib/settings";
@@ -43,8 +43,9 @@ async function handle(request: Request) {
         if (!planning.autoPlanEnabled) {
           return NextResponse.json({ job, skipped: "Automatischer Planlauf ist deaktiviert." });
         }
-        const start = today();
-        const end = addDays(start, general.planningHorizonDays);
+        // Geplant wird ab der kommenden Woche – die laufende ist bereits
+        // verteilt und soll sich nicht unter den Leuten wegändern.
+        const { start, end } = nextWorkWeeks(general.planningWeeks);
         const result = await applyPlan(start, end, null);
         return NextResponse.json({
           job,

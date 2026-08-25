@@ -5,6 +5,7 @@
  */
 
 import { envValue, normalizeEntraIssuer } from "@/lib/entra";
+import { allowedEmailDomains } from "@/lib/access";
 
 type Check = { name: string; ok: boolean; hint: string };
 
@@ -68,6 +69,14 @@ export function checkEnvironment(): Check[] {
       name: "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
       ok: !entraConfigured || issuerIsUsable(),
       hint: "Entweder leer lassen oder https://login.microsoftonline.com/<MANDANTEN-ID>/v2.0 bzw. nur die Mandanten-ID angeben.",
+    },
+    {
+      name: "ALLOWED_EMAIL_DOMAINS",
+      // Eine leere Liste ist zulässig, ein unbrauchbarer Eintrag nicht.
+      ok:
+        !process.env.ALLOWED_EMAIL_DOMAINS?.trim() ||
+        allowedEmailDomains().every((domain) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)),
+      hint: "Kommagetrennte Liste von E-Mail-Domänen, z.B. firma.de – oder leer lassen.",
     },
     {
       name: "DEV_LOGIN_ENABLED",

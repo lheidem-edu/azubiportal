@@ -136,3 +136,21 @@ export function rangesOverlap(
 ): boolean {
   return aStart <= bEnd && bStart <= aEnd;
 }
+
+/**
+ * Montag der nächsten Woche. Grundlage der Planung: Die laufende Woche ist in
+ * der Regel schon geplant, geplant wird ab der kommenden.
+ */
+export function startOfNextWeek(from: IsoDate = today()): IsoDate {
+  return addDays(startOfIsoWeek(from), 7);
+}
+
+/**
+ * Zeitraum über eine Anzahl Arbeitswochen ab der nächsten Woche – jeweils von
+ * Montag bis Freitag, das Ende fällt auf den letzten Freitag.
+ */
+export function nextWorkWeeks(weeks: number, from: IsoDate = today()) {
+  const start = startOfNextWeek(from);
+  const safeWeeks = Math.max(1, Math.round(weeks));
+  return { start, end: addDays(start, (safeWeeks - 1) * 7 + 4) };
+}

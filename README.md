@@ -112,6 +112,22 @@ AUTH_MICROSOFT_ENTRA_ID_SECRET=<Wert des Client-Geheimnisses>
 AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Verzeichnis-ID (Mandant)>
 ```
 
+### Wer sich anmelden darf
+
+Beim ersten erfolgreichen Login legt die Anwendung automatisch ein
+Benutzerkonto an. Damit dabei nichts Fremdes hereinkommt, lässt sich der
+Zugang auf E-Mail-Domänen einschränken:
+
+```env
+ALLOWED_EMAIL_DOMAINS=be-bauelemente.com
+```
+
+Mehrere Domänen werden mit Komma getrennt; Unterdomänen sind eingeschlossen.
+Bleibt die Variable leer, entscheidet allein die Anmeldung bei Microsoft – das
+genügt, solange die App-Registrierung an einen einzelnen Mandanten gebunden
+ist. Bei einer mandantenübergreifenden Registrierung gehört hier die eigene
+Domäne hinein.
+
 Beim Aussteller werden alle gebräuchlichen Schreibweisen angenommen: die bloße
 Mandanten-ID, die vollständige Adresse
 `https://login.microsoftonline.com/<MANDANTEN-ID>/v2.0` – mit oder ohne
@@ -165,6 +181,7 @@ APP_BASE_URL=https://azubiportal.firma.de
 AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID>
 AUTH_MICROSOFT_ENTRA_ID_SECRET=<Geheimnis>
 AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/<Mandanten-ID>/v2.0
+ALLOWED_EMAIL_DOMAINS=firma.de
 BOOTSTRAP_ADMIN_EMAILS=vorname.nachname@firma.de
 ```
 
@@ -266,6 +283,24 @@ hat, kann sie gefahrlos löschen:
 ```sql
 DELETE FROM public_holidays WHERE source = 'AUTO' AND is_active = true;
 ```
+
+## Wann geplant wird
+
+Geplant wird immer ab der **kommenden** Woche – die laufende ist verteilt und
+soll sich nicht unter den Beteiligten wegändern.
+
+| Auslöser | Zeitraum |
+| --- | --- |
+| *Plan erstellen* (Voreinstellung) | die nächste Arbeitswoche, Mo–Fr |
+| Automatischer Lauf (`PLANNING_CRON`) | die nächsten zwei Arbeitswochen |
+
+Die Zahl der Wochen für den automatischen Lauf steht unter
+*Verwaltung → Einstellungen* als „Planungshorizont (Arbeitswochen)"; derselbe
+Wert steckt hinter der Schaltfläche *Nächste N Arbeitswochen*. Auf der
+Startseite weist ein Hinweis darauf hin, wenn der Plan nicht so weit reicht.
+
+Der Zeitraum in *Plan erstellen* lässt sich jederzeit von Hand weiter fassen –
+gesperrte Einteilungen bleiben bei jedem Lauf unverändert.
 
 ## So funktioniert die Verteilung
 

@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/app/page-header";
 import { PlanBoard } from "@/components/app/plan-board";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { addDays, formatDateDe, startOfIsoWeek, today } from "@/lib/dates";
+import { addDays, formatDateDe, nextWorkWeeks, today } from "@/lib/dates";
 import { getLoadOverview, getPlanBoard } from "@/lib/scheduler/service";
 import { getSetting } from "@/lib/settings";
 import { requirePlanner } from "@/lib/session";
@@ -20,8 +20,13 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
   const params = await props.searchParams;
   const general = await getSetting("general");
 
-  const rangeStart = isIso(params.from) ? params.from : startOfIsoWeek(today());
-  const rangeEnd = isIso(params.to) ? params.to : addDays(rangeStart, 27);
+  /**
+   * Standard ist die kommende Arbeitswoche: Die laufende Woche ist verteilt,
+   * geplant wird das, was als Nächstes ansteht.
+   */
+  const defaultRange = nextWorkWeeks(1);
+  const rangeStart = isIso(params.from) ? params.from : defaultRange.start;
+  const rangeEnd = isIso(params.to) ? params.to : defaultRange.end;
   const selectedDay = isIso(params.day) ? params.day : null;
 
   const [board, load] = await Promise.all([
@@ -51,7 +56,7 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
           <PlanControls
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
-            horizonDays={general.planningHorizonDays}
+            planningWeeks={general.planningWeeks}
           />
         </CardContent>
       </Card>
