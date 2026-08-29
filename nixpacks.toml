@@ -12,6 +12,10 @@ cmds = ["npm ci"]
 
 [phases.build]
 cmds = ["npm run build"]
+# Ohne diese Zeile nimmt Nixpacks zusätzlich „tsconfig.tsbuildinfo" als
+# Cache-Verzeichnis auf. Das ist aber eine Datei, und der Build bricht beim
+# Einhängen ab („not a directory").
+cacheDirectories = [".next/cache", "node_modules/.cache"]
 
 [start]
 cmd = "npm run start"

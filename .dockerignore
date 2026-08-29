@@ -1,0 +1,13 @@
+# Der Build-Kontext für Nixpacks soll dem entsprechen, was auch im
+# Repository liegt: Quelltext, keine lokalen Ergebnisse. Ohne diese Liste
+# landen node_modules, ein bereits gebautes .next und Geheimnisse aus
+# .env.local im Abbild.
+node_modules
+.next
+dist
+.git
+*.log
+.env
+.env.*
+!.env.example
+tsconfig.tsbuildinfo

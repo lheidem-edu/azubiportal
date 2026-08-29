@@ -160,7 +160,15 @@ mit eingeplant. Rollen vergibt der Administrator unter
 
 Die Anwendung wird mit **Nixpacks** gebaut; die Datenbank läuft getrennt. Ein
 Abbild oder eine Compose-Datei braucht es dafür nicht – `nixpacks.toml` legt
-fest, wie gebaut und gestartet wird.
+fest, wie gebaut und gestartet wird, und `.dockerignore` hält lokale Ergebnisse
+und Geheimnisse aus dem Build-Kontext heraus.
+
+Der Bauvorgang lässt sich vor dem Deployment prüfen:
+
+```bash
+nixpacks build . --name azubiportal
+docker run --rm -p 3000:3000 -e DATABASE_URL=… -e AUTH_SECRET=… azubiportal
+```
 
 ### 1. Datenbank
 
