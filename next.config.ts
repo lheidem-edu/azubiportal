@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /** Für das Docker-Abbild: schlanker Standalone-Build. */
-  output: "standalone",
   /** pg und nodemailer laufen nur serverseitig und werden nicht gebündelt. */
   serverExternalPackages: ["pg", "nodemailer"],
   poweredByHeader: false,

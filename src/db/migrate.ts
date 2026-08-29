@@ -9,6 +9,13 @@ import { assertEnvironment } from "@/lib/env";
  * Deployment ohne zusätzlichen Handgriff auskommt.
  */
 async function main() {
+  // Beim Start der Anwendung ausgeführt. Wer die Migration anders steuern
+  // will – etwa aus einem Wartungsfenster heraus –, schaltet sie hier ab.
+  if (process.env.RUN_MIGRATIONS === "false") {
+    console.log("Migrationen übersprungen (RUN_MIGRATIONS=false).");
+    return;
+  }
+
   assertEnvironment();
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });

@@ -3,19 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "node scripts/typecheck.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "cron": "node scripts/cron.mjs",
+    "db:down": "docker rm -f azubiportal-db",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
-    "worker": "node worker.mjs"
+    "db:studio": "drizzle-kit studio",
+    "db:up": "docker run -d --name azubiportal-db -p 5433:5432 -e POSTGRES_USER=azubiportal -e POSTGRES_PASSWORD=azubiportal -e POSTGRES_DB=azubiportal -e TZ=Europe/Berlin -v azubiportal-db:/var/lib/postgresql/data postgres:17-alpine",
+    "dev": "next dev",
+    "lint": "eslint",
+    "postbuild": "esbuild src/db/migrate.ts --bundle --platform=node --format=cjs --target=node22 --external:pg --external:pg-native --outfile=dist/migrate.cjs",
+    "start": "node dist/migrate.cjs && next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "node scripts/typecheck.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -67,5 +70,8 @@
     "esbuild@0.28.2": true,
     "unrs-resolver@1.12.2": true
   },
-  "description": "Portal f\u00fcr Auszubildende: Urlaub, Schultage und Vertretungsplan der Zentrale"
+  "description": "Portal f\u00fcr Auszubildende: Urlaub, Schultage und Vertretungsplan der Zentrale",
+  "engines": {
+    "node": ">=22"
+  }
 }

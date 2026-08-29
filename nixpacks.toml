@@ -1,0 +1,17 @@
+# Bauanleitung für Nixpacks (Dokploy: Build-Typ „Nixpacks").
+#
+# Die Datenbank läuft getrennt; ihre Adresse kommt über DATABASE_URL herein.
+# Vor dem Start werden die Migrationen angewendet – siehe „start" in
+# package.json.
+
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"

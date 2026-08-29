@@ -62,7 +62,7 @@ wäre.
 | Datenbank | PostgreSQL 17 mit Drizzle ORM |
 | Anmeldung | Auth.js v5 mit Microsoft Entra ID (SSO) |
 | Sprache | Oberfläche deutsch, URLs und Code englisch |
-| Betrieb | Docker Compose (App + DB + Cron-Worker) |
+| Betrieb | Nixpacks (Dokploy), PostgreSQL getrennt betrieben |
 
 Die Planungslogik liegt vollständig in `src/lib/scheduler/engine.ts` und ist
 frei von Datenbank- und Framework-Abhängigkeiten: Sie bekommt alle Stammdaten
@@ -74,7 +74,7 @@ deterministisch und mit `npm test` prüfbar.
 ```bash
 cp .env.example .env.local          # Werte anpassen
 openssl rand -base64 32             # -> AUTH_SECRET
-docker compose up -d                # PostgreSQL auf Port 5433
+npm run db:up                       # PostgreSQL auf Port 5433 (Docker)
 npm install
 npm run db:migrate                  # Tabellen anlegen
 npm run db:seed -- --demo           # Grunddaten (+ Beispiel-Azubis)
@@ -158,56 +158,70 @@ mit eingeplant. Rollen vergibt der Administrator unter
 
 ## Betrieb mit Dokploy
 
-Die Anwendung ist als Docker-Abbild ausgelegt: Next.js im Standalone-Modus,
-dazu zwei eigenständig gebündelte Hilfsprogramme für Migration und Cron. Beim
-Start bringt der Container die Datenbank selbst auf den aktuellen Stand – ein
-Deployment braucht keinen zusätzlichen Handgriff.
+Die Anwendung wird mit **Nixpacks** gebaut; die Datenbank läuft getrennt. Ein
+Abbild oder eine Compose-Datei braucht es dafür nicht – `nixpacks.toml` legt
+fest, wie gebaut und gestartet wird.
 
-### Als Compose-Anwendung (empfohlen)
+### 1. Datenbank
 
-1. In Dokploy eine neue Anwendung vom Typ **Compose** anlegen und dieses
-   Repository als Quelle hinterlegen.
-2. Als Compose-Datei `docker-compose.dokploy.yml` auswählen. Sie startet drei
-   Dienste: `db` (PostgreSQL mit dauerhaftem Volume), `app` und `worker`.
-3. Unter *Environment* die Werte setzen:
+In Dokploy unter *Databases* eine **PostgreSQL**-Instanz anlegen (Version 17)
+und deren interne Verbindungszeichenfolge notieren. Sie sieht etwa so aus:
+
+```
+postgres://<benutzer>:<passwort>@<dienstname>:5432/<datenbank>
+```
+
+Genauso gut geht jede andere erreichbare PostgreSQL-Instanz.
+
+### 2. Anwendung
+
+Eine Anwendung vom Typ **Application** anlegen, dieses Repository als Quelle
+hinterlegen und als Build-Typ **Nixpacks** wählen. Unter *Environment*:
 
 ```env
-POSTGRES_USER=azubiportal
-POSTGRES_PASSWORD=<langes Passwort>
-POSTGRES_DB=azubiportal
+DATABASE_URL=postgres://<benutzer>:<passwort>@<dienstname>:5432/<datenbank>
 AUTH_SECRET=<openssl rand -base64 32>
+AUTH_URL=https://azubiportal.firma.de
+AUTH_TRUST_HOST=true
 CRON_SECRET=<openssl rand -hex 24>
 APP_BASE_URL=https://azubiportal.firma.de
 AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID>
 AUTH_MICROSOFT_ENTRA_ID_SECRET=<Geheimnis>
-AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/<Mandanten-ID>/v2.0
+AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Mandanten-ID>
 ALLOWED_EMAIL_DOMAINS=firma.de
 BOOTSTRAP_ADMIN_EMAILS=vorname.nachname@firma.de
 ```
 
-4. Unter *Domains* die Domain auf den Dienst **app**, Port **3000** routen und
-   HTTPS aktivieren. `APP_BASE_URL` muss dieselbe Adresse enthalten.
-5. Deployen. Der Container wendet die Migrationen an und startet.
+Unter *Domains* die Domain auf Port **3000** routen und HTTPS aktivieren.
+`AUTH_URL` und `APP_BASE_URL` müssen dieselbe Adresse enthalten, sonst zeigen
+Anmeldung und Kalenderfeed ins Leere.
 
-Die Compose-Datei veröffentlicht bewusst keine Ports – das Routing übernimmt
-der Reverse-Proxy von Dokploy.
+Beim Start wendet die Anwendung die Migrationen selbst an – ein Deployment
+braucht keinen zusätzlichen Handgriff. Mit `RUN_MIGRATIONS=false` lässt sich
+das abschalten, etwa um Änderungen an der Datenbank aus einem Wartungsfenster
+heraus zu fahren.
 
-### Als einzelne Anwendung mit externer Datenbank
+### 3. Zeitgesteuerte Aufgaben
 
-Wer die Datenbank getrennt betreibt (z.B. als Dokploy-eigene PostgreSQL-
-Instanz), legt stattdessen eine Anwendung vom Typ **Dockerfile** an und setzt
-zusätzlich `DATABASE_URL`. Der Worker entfällt dabei; die beiden Cron-Aufgaben
-lassen sich als Dokploy-Schedules einrichten:
+Unter *Schedules* zwei Einträge anlegen, die im Container der Anwendung laufen:
+
+| Zeitplan | Befehl | Aufgabe |
+| --- | --- | --- |
+| `0 7 * * 1-5` | `npm run cron -- reminders` | Morgenerinnerungen versenden |
+| `30 5 * * 1` | `npm run cron -- plan` | die nächsten Arbeitswochen planen |
+
+`scripts/cron.mjs` ruft damit den geschützten Endpunkt `POST /api/cron` auf.
+Wer lieber von außen anstößt, kann dasselbe mit `curl`:
 
 ```bash
 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
   "https://azubiportal.firma.de/api/cron?job=reminders"
 ```
 
-### Nach dem ersten Deployment
+### 4. Nach dem ersten Deployment
 
-Die Migrationen laufen beim Start automatisch; die Datenbank ist danach leer,
-aber vollständig. Anlegen lässt sich alles Weitere direkt in der Oberfläche:
+Die Datenbank ist nach den Migrationen vollständig, aber leer. Alles Weitere
+entsteht in der Oberfläche:
 
 1. Mit der Adresse aus `BOOTSTRAP_ADMIN_EMAILS` anmelden – dieses Konto
    bekommt die Rolle *Administrator*.
@@ -218,48 +232,20 @@ aber vollständig. Anlegen lässt sich alles Weitere direkt in der Oberfläche:
 4. Unter *Verwaltung → Auszubildende* die Azubis anlegen.
 5. Unter *Plan erstellen* den ersten Planlauf starten.
 
-Feiertage müssen nicht angelegt werden – sie werden berechnet.
+Feiertage und NRW-Schulferien müssen nicht angelegt werden.
 
 ### Zustandsprüfung
 
 `GET /api/health` antwortet mit 200, wenn die Anwendung läuft **und** die
-Datenbank erreichbar ist, sonst mit 503. Das Docker-Abbild nutzt den Endpunkt
-für seinen eigenen `HEALTHCHECK`; Dokploy zeigt den Zustand in der Übersicht.
+Datenbank erreichbar ist, sonst mit 503. In Dokploy lässt sich der Pfad als
+Health-Check hinterlegen.
 
 ### Startprüfung
 
-Beim Start prüft der Container die Konfiguration und bricht mit einer
+Beim Start prüft die Anwendung ihre Konfiguration und bricht mit einer
 verständlichen Meldung ab, wenn etwas fehlt – etwa ein zu kurzes
 `AUTH_SECRET`, eine fehlende `AUTH_URL` oder ein in Produktion aktivierter
 Entwicklungs-Login.
-
-### Zeitgesteuerte Aufgaben
-
-Der Worker (`worker.mjs`) ruft `POST /api/cron?job=…` mit dem `CRON_SECRET` auf.
-Er läuft als eigener Container aus demselben Abbild, nur mit anderem Befehl
-(`node /app/worker.mjs`), und führt selbst keine Migrationen aus.
-Die Zeitpunkte stehen als Cron-Ausdrücke in der Umgebung:
-
-| Variable | Standard | Aufgabe |
-| --- | --- | --- |
-| `REMINDER_CRON` | `0 7 * * 1-5` | Morgenerinnerungen versenden |
-| `PLANNING_CRON` | `30 5 * * 1` | Plan für den Planungshorizont erzeugen |
-
-## Schulferien
-
-Ferien lassen sich – anders als Feiertage – nicht berechnen; sie werden vom
-Schulministerium festgelegt. Die Termine der
-[Ferienordnung für Nordrhein-Westfalen](https://www.schulministerium.nrw/ferienordnung-fuer-nordrhein-westfalen-fuer-die-schuljahre-bis-202930)
-sind bis zum Schuljahr 2029/30 in `src/lib/school-holidays-nrw.ts` hinterlegt
-und werden beim Seed in die Tabelle `school_holidays` geschrieben.
-
-Innerhalb dieser Zeiträume greifen die wiederkehrenden Berufsschultage nicht.
-Blockunterricht bleibt davon unberührt – der wird weiterhin als Abwesenheit
-erfasst.
-
-Unter *Verwaltung → Kalender* lassen sich Ferien ergänzen, entfernen und die
-mitgelieferte Ferienordnung erneut einlesen. Läuft der Datensatz irgendwann
-aus, ist das dort sichtbar.
 
 ## Feiertage
 
@@ -292,7 +278,7 @@ soll sich nicht unter den Beteiligten wegändern.
 | Auslöser | Zeitraum |
 | --- | --- |
 | *Plan erstellen* (Voreinstellung) | die nächste Arbeitswoche, Mo–Fr |
-| Automatischer Lauf (`PLANNING_CRON`) | die nächsten zwei Arbeitswochen |
+| Automatischer Lauf (Dokploy-Schedule) | die nächsten zwei Arbeitswochen |
 
 Die Zahl der Wochen für den automatischen Lauf steht unter
 *Verwaltung → Einstellungen* als „Planungshorizont (Arbeitswochen)"; derselbe
@@ -353,8 +339,8 @@ Hinweis im Planlauf und als Warnung auf der Startseite.
 | `npm run db:migrate` | Migrationen anwenden |
 | `npm run db:seed` | Grunddaten (`-- --demo` für Beispieldaten) |
 | `npm run db:studio` | Drizzle Studio |
-| `npm run worker` | Cron-Worker lokal starten |
-| `docker build -t azubiportal .` | Produktionsabbild bauen |
+| `npm run cron -- reminders` | Erinnerungen von Hand anstoßen |
+| `npm run db:up` / `npm run db:down` | lokale PostgreSQL starten/stoppen |
 
 ## Projektstruktur
 

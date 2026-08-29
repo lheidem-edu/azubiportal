@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Erzeugtes Bündel der Migration (siehe „postbuild" in package.json).
+    "dist/**",
   ]),
 ]);
 
