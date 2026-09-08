@@ -11,7 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "db:up": "docker run -d --name azubiportal-db -p 5433:5432 -e POSTGRES_USER=azubiportal -e POSTGRES_PASSWORD=azubiportal -e POSTGRES_DB=azubiportal -e TZ=Europe/Berlin -v azubiportal-db:/var/lib/postgresql/data postgres:17-alpine",
+    "db:up": "docker run -d --name azubiportal-db -p 5434:5432 -e POSTGRES_USER=azubiportal -e POSTGRES_PASSWORD=azubiportal -e POSTGRES_DB=azubiportal -e TZ=Europe/Berlin -v azubiportal-db:/var/lib/postgresql/data postgres:17-alpine",
     "dev": "next dev",
     "lint": "eslint",
     "postbuild": "esbuild src/db/migrate.ts --bundle --platform=node --format=cjs --target=node22 --external:pg --external:pg-native --outfile=dist/migrate.cjs",

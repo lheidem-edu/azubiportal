@@ -74,7 +74,7 @@ deterministisch und mit `npm test` prüfbar.
 ```bash
 cp .env.example .env.local          # Werte anpassen
 openssl rand -base64 32             # -> AUTH_SECRET
-npm run db:up                       # PostgreSQL auf Port 5433 (Docker)
+npm run db:up                       # PostgreSQL auf Port 5434 (Docker)
 npm install
 npm run db:migrate                  # Tabellen anlegen
 npm run db:seed -- --demo           # Grunddaten (+ Beispiel-Azubis)
