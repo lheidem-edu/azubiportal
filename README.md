@@ -218,7 +218,11 @@ Unter *Schedules* zwei Einträge anlegen, die im Container der Anwendung laufen:
 | `0 7 * * 1-5` | `npm run cron -- reminders` | Morgenerinnerungen versenden |
 | `30 5 * * 1` | `npm run cron -- plan` | die nächsten Arbeitswochen planen |
 
-`scripts/cron.mjs` ruft damit den geschützten Endpunkt `POST /api/cron` auf.
+`scripts/cron.mjs` ruft damit den geschützten Endpunkt `POST /api/cron` auf –
+und zwar über `127.0.0.1` im Container, nicht über die öffentliche Adresse.
+Die zeigt auf den Reverse-Proxy und ist von innen oft nicht auflösbar. Wer den
+Lauf von einem anderen Rechner aus anstößt, setzt `APP_INTERNAL_URL` auf eine
+erreichbare Adresse.
 Wer lieber von außen anstößt, kann dasselbe mit `curl`:
 
 ```bash
