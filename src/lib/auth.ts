@@ -40,17 +40,10 @@ for (const name of ["AUTH_URL", "NEXTAUTH_URL", "AUTH_REDIRECT_PROXY_URL"]) {
 applyEntraEnvDefaults();
 const entra = readEntraConfig();
 
-function bootstrapAdmins(): string[] {
-  return (process.env.BOOTSTRAP_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-}
-
 /**
  * Legt den Benutzer beim ersten Login an bzw. aktualisiert ihn.
- * Die Rollenvergabe passiert danach in der Verwaltung; nur die in
- * BOOTSTRAP_ADMIN_EMAILS hinterlegten Adressen bekommen automatisch ADMIN.
+ * Die Rollenvergabe passiert anschließend in der Verwaltung; den ersten
+ * Administrator setzt man mit `npm run user:role -- <adresse>`.
  */
 async function upsertUser(input: {
   email: string;
@@ -101,7 +94,6 @@ async function upsertUser(input: {
  * ist, bekommt die Rolle DESK und darf damit nur eigene Abwesenheiten pflegen.
  */
 async function initialRoleFor(email: string): Promise<Role> {
-  if (bootstrapAdmins().includes(email)) return "ADMIN";
   const staff = await db.query.deskStaff.findFirst({
     where: sql`lower(${deskStaff.email}) = ${email}`,
   });

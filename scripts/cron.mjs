@@ -10,6 +10,8 @@
  * und ist von innen oft gar nicht auflösbar. Wer von außen anstößt, setzt
  * APP_INTERNAL_URL auf die erreichbare Adresse.
  */
+import { describeError } from "./describe-error.mjs";
+
 const job = process.argv[2] ?? "reminders";
 const base = (
   process.env.APP_INTERNAL_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3000}`
@@ -34,6 +36,6 @@ try {
   }
   console.log(`${job}: ${body}`);
 } catch (error) {
-  console.error(`${job} Fehler:`, error?.message ?? error);
+  console.error(`${job} Fehler:`, describeError(error));
   process.exit(1);
 }

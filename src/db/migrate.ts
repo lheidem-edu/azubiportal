@@ -41,6 +41,13 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  // Verbindungsfehler kommen als AggregateError mit leerer message an.
+  const causes =
+    error instanceof AggregateError
+      ? [...new Set((error.errors ?? []).map((e) => (e as Error)?.message).filter(Boolean))]
+      : [];
+  console.error(
+    causes.length > 0 ? causes.join("; ") : error instanceof Error ? error.message : String(error),
+  );
   process.exit(1);
 });

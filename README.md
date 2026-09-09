@@ -83,8 +83,12 @@ npm run dev
 
 Anmeldung unter <http://localhost:3000>. Solange `DEV_LOGIN_ENABLED=true` gesetzt
 ist, genügt für die Entwicklung eine E-Mail-Adresse ohne Passwort. Die in
-`BOOTSTRAP_ADMIN_EMAILS` hinterlegten Adressen erhalten beim ersten Login
-automatisch die Rolle *Administrator*.
+Den ersten Administrator setzt man nach dessen erster Anmeldung von der
+Kommandozeile:
+
+```bash
+npm run user:role -- vorname.nachname@firma.de
+```
 
 `npm run db:seed` ohne `--demo` legt nur die Grunddaten an: die Pausen-Slots
 (Frühstück 09:00–09:30, Mittag 12:00–12:45), zwei Ganztags-Slots (Mo–Do
@@ -197,7 +201,6 @@ AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID>
 AUTH_MICROSOFT_ENTRA_ID_SECRET=<Geheimnis>
 AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Mandanten-ID>
 ALLOWED_EMAIL_DOMAINS=firma.de
-BOOTSTRAP_ADMIN_EMAILS=vorname.nachname@firma.de
 ```
 
 Unter *Domains* die Domain auf Port **3000** routen und HTTPS aktivieren.
@@ -235,8 +238,12 @@ curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
 Die Datenbank ist nach den Migrationen vollständig, aber leer. Alles Weitere
 entsteht in der Oberfläche:
 
-1. Mit der Adresse aus `BOOTSTRAP_ADMIN_EMAILS` anmelden – dieses Konto
-   bekommt die Rolle *Administrator*.
+1. Einmal anmelden – dabei entsteht das Benutzerkonto. Anschließend über
+   *Run command* in Dokploy zum Administrator machen:
+
+   ```bash
+   npm run user:role -- vorname.nachname@firma.de
+   ```
 2. Unter *Verwaltung → Pausenzeiten* die Vertretungszeiten anlegen.
 3. Unter *Verwaltung → Zentrale* die feste Besetzung mit ihren Wochentagen
    eintragen, mit E-Mail-Adresse, damit sich diese Personen selbst anmelden
@@ -352,6 +359,8 @@ Hinweis im Planlauf und als Warnung auf der Startseite.
 | `npm run db:seed` | Grunddaten (`-- --demo` für Beispieldaten) |
 | `npm run db:studio` | Drizzle Studio |
 | `npm run cron -- reminders` | Erinnerungen von Hand anstoßen |
+| `npm run user:role` | Benutzer und Rollen anzeigen |
+| `npm run user:role -- <adresse> [rolle]` | Rolle setzen, Vorgabe ADMIN |
 | `npm run db:up` / `npm run db:down` | lokale PostgreSQL starten/stoppen |
 
 ## Projektstruktur

@@ -36,7 +36,8 @@ export function isAdmin(role: Role | undefined): boolean {
  */
 export const SLOT_KIND_LABEL: Record<SlotKind, string> = {
   BREAK: "Pause",
-  FULL_DAY: "Ganztags",
+  // Kleingeschrieben, weil es ein Umstandswort ist – „davon ganztags".
+  FULL_DAY: "ganztags",
 };
 
 export const SLOT_KIND_HINT: Record<SlotKind, string> = {

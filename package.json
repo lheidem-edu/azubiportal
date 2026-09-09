@@ -18,7 +18,8 @@
     "start": "node dist/migrate.cjs && next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "node scripts/typecheck.mjs"
+    "typecheck": "node scripts/typecheck.mjs",
+    "user:role": "node scripts/user-role.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
