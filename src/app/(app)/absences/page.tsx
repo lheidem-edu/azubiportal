@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { requireUser } from "@/lib/session";
 import { canPlan } from "@/lib/labels";
-import { weekdayLabel } from "@/lib/dates";
+import { today, weekdayLabel } from "@/lib/dates";
+import { getYearOverview } from "@/lib/year-overview";
 import { listAbsences, listPeople } from "@/app/actions/absences";
 import { personValue } from "@/lib/people";
 import { AbsenceForm } from "./absence-form";
 import { AbsenceList } from "./absence-list";
+import { PersonYearChart } from "./person-year-chart";
 
 export const metadata = { title: "Urlaub & Abwesenheit" };
 
@@ -34,13 +36,17 @@ export default async function AbsencesPage() {
     );
   }
 
-  const [people, rows, shifts] = await Promise.all([
+  const year = new Date().getFullYear();
+  const [people, rows, shifts, overview] = await Promise.all([
     listPeople(),
     listAbsences({ personId: ownId }),
     ownKind === "DESK"
       ? db.select().from(deskShifts).where(eq(deskShifts.staffId, ownId))
       : Promise.resolve([]),
+    getYearOverview(year),
   ]);
+
+  const me = overview.people.find((person) => person.kind === ownKind && person.id === ownId);
 
   const weekdays = [...new Set(shifts.map((s) => s.weekday))].sort();
   const description =
@@ -48,7 +54,7 @@ export default async function AbsencesPage() {
       ? weekdays.length > 0
         ? `Du bist ${weekdays.map(weekdayLabel).join(", ")} in der Zentrale eingeteilt. An deinen Abwesenheitstagen wird eine ganztägige Vertretung eingeplant.`
         : "An deinen Abwesenheitstagen wird eine ganztägige Vertretung eingeplant."
-      : "Urlaub muss von der Ausbildungsleitung genehmigt werden. Krankmeldungen gelten sofort.";
+      : "Der Eintrag gilt sofort – an diesen Tagen wirst du nicht für die Zentrale eingeplant.";
 
   return (
     <>
@@ -81,6 +87,32 @@ export default async function AbsencesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {me && (
+        <Card className="mt-6">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+              <CardTitle className="text-base">Mein Jahr {year}</CardTitle>
+              <p className="text-muted-foreground text-xs">
+                {dayCount(me.vacationDays, "Urlaubstag", "Urlaubstage")} ·{" "}
+                {dayCount(me.sickDays, "Krankheitstag", "Krankheitstage")}
+              </p>
+            </div>
+            <CardDescription>
+              Eine Zeile je Monat, eine Spalte je Tag. Seitlich scrollen, wenn der Monat nicht
+              ganz aufs Bild passt.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PersonYearChart overview={overview} person={me} today={today()} />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
+}
+
+/** „1 Urlaubstag“, aber „2 Urlaubstage“ – halbe Tage bleiben im Plural. */
+function dayCount(value: number, singular: string, plural: string): string {
+  return `${value.toLocaleString("de-DE")} ${value === 1 ? singular : plural}`;
 }

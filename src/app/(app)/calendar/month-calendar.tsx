@@ -6,6 +6,7 @@ import { CalendarOff, GraduationCap, Sun, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { dayBackground, MARK_COLOR } from "@/components/app/calendar-colors";
 import { formatDateLongDe, startOfIsoWeek, weekdayShort, type IsoDate } from "@/lib/dates";
 import {
   MARK_LABEL,
@@ -14,30 +15,6 @@ import {
   type MonthView,
   type PersonYear,
 } from "@/lib/year-marks";
-
-/** Farbe je Abwesenheitsart – feste Werte, damit sie hell wie dunkel tragen. */
-/**
- * Hintergrund eines Tages im Raster.
- *
- * Feiertage und Betriebsferien heben sich am stärksten ab – an ihnen wird gar
- * nicht gearbeitet. Schulferien bekommen denselben Farbton, aber blasser: Sie
- * betreffen nur den Berufsschulunterricht, die Auszubildenden sind da.
- * Wochenenden bleiben neutral grau.
- */
-function dayBackground(day: { isWeekend: boolean; holiday?: string; closure?: string; schoolHoliday?: string }): string {
-  if (day.holiday || day.closure) return "bg-amber-500/25";
-  if (day.schoolHoliday) return "bg-amber-500/10";
-  if (day.isWeekend) return "bg-muted";
-  return "bg-muted/25";
-}
-
-const MARK_COLOR: Record<MarkKind, string> = {
-  VACATION: "bg-emerald-500",
-  SICK: "bg-rose-500",
-  SCHOOL: "bg-sky-400",
-  TRAINING: "bg-violet-500",
-  OTHER: "bg-amber-500",
-};
 
 /** Spaltenbreite je Tag. Schmal genug, dass ein ganzer Monat aufs Bild passt. */
 const COLUMN = 26;
