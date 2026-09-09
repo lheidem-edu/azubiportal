@@ -12,6 +12,15 @@ async function getTransporter() {
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
+    /*
+     * Kurze Fristen statt der Voreinstellung von 30 Sekunden. Der Versand
+     * hängt an Abläufen, auf die jemand wartet – etwa dem Eintragen einer
+     * Krankmeldung. Antwortet der Mailserver nicht zügig, ist es besser, das
+     * als Fehler zu protokollieren, als die Bedienung minutenlang zu blockieren.
+     */
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 10_000,
   });
   cached = { key, transporter };
   return transporter;

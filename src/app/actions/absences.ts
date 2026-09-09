@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -17,6 +17,7 @@ import { canPlan } from "@/lib/labels";
 import { formatRangeDe } from "@/lib/dates";
 import { dropOutOfAssignments, restoreAssignments } from "@/lib/standin";
 import { notifyStandIns } from "@/lib/notify";
+import { notifySickReport } from "@/lib/notify/planning";
 import type { SessionUser } from "@/lib/session";
 import { personValue, type AbsenceRow, type PersonKind, type PersonOption } from "@/lib/people";
 
@@ -96,7 +97,7 @@ async function assertCanEditPerson(kind: PersonKind, id: string): Promise<Sessio
   const user = await currentUser();
   if (canPlan(user.role)) return user;
   if (kind === "APPRENTICE" && user.apprenticeId === id) return user;
-  if (kind === "DESK" && user.deskStaffId === id) return user;
+  if (kind === "DESK" && user.deskStaffIds.includes(id)) return user;
   throw new Error("Du darfst nur deine eigenen Abwesenheiten eintragen.");
 }
 
@@ -165,6 +166,30 @@ export async function createAbsence(input: unknown) {
       }
     }
 
+    /**
+     * Krankmeldungen gehen an die Planung. Sie kommen kurzfristig und können
+     * einen Tag unbesetzt lassen – das muss jemand mitbekommen, ohne selbst
+     * nachzusehen. Ein Fehler beim Versand darf den Eintrag nicht verhindern.
+     */
+    if (data.type === "SICK") {
+      try {
+        const personName =
+          (await listPeople()).find(
+            (person) => person.kind === data.personKind && person.id === data.personId,
+          )?.name ?? "Unbekannt";
+        await notifySickReport({
+          personName,
+          isDeskStaff: data.personKind === "DESK",
+          startDate: data.startDate,
+          endDate: data.endDate,
+          reason: data.reason || null,
+          reportedBy: user.name,
+        });
+      } catch (error) {
+        console.error("[absence] Hinweis an die Planung fehlgeschlagen", error);
+      }
+    }
+
     paths();
 
     return ok(
@@ -221,6 +246,8 @@ export async function reportAwayToday(kind: PersonKind, id: string, date: string
 export async function listAbsences(filter: {
   personKind?: PersonKind;
   personId?: string;
+  /** Mehrere Personen, etwa beim Sammelkonto der Zentrale. */
+  personIds?: string[];
   from?: string;
 } = {}): Promise<AbsenceRow[]> {
   const rows = await db
@@ -247,6 +274,12 @@ export async function listAbsences(filter: {
           ? or(
               eq(absences.apprenticeId, filter.personId),
               eq(absences.deskStaffId, filter.personId),
+            )
+          : undefined,
+        filter.personIds?.length
+          ? or(
+              inArray(absences.apprenticeId, filter.personIds),
+              inArray(absences.deskStaffId, filter.personIds),
             )
           : undefined,
         filter.from ? gte(absences.endDate, filter.from) : undefined,

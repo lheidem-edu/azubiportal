@@ -180,6 +180,29 @@ export async function setUserRole(userId: string, role: "ADMIN" | "PLANNER" | "A
   });
 }
 
+/**
+ * Ob dieser Benutzer die Hinweise für die Planung bekommt. Bewusst eine
+ * Einstellung und keine eigene Rolle: Wer planen darf, darf planen – ob er
+ * dabei benachrichtigt werden möchte, ist eine andere Frage und ändert sich
+ * auch mal, ohne dass jemand Rechte bekommt oder verliert.
+ */
+export async function setUserNotifyPlanning(userId: string, notifyPlanning: boolean) {
+  return run(async () => {
+    const user = await requireAdminAction();
+    await db
+      .update(users)
+      .set({ notifyPlanning, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    await writeAudit(user, "user.notify_planning", "user", userId, { notifyPlanning });
+    revalidatePath("/admin/settings");
+    return ok(
+      notifyPlanning
+        ? "Erhält künftig Hinweise zu Krankmeldungen und unbesetzten Tagen."
+        : "Erhält keine Hinweise mehr zur Planung.",
+    );
+  });
+}
+
 export async function setUserActive(userId: string, isActive: boolean) {
   return run(async () => {
     const user = await requireAdminAction();

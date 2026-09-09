@@ -34,6 +34,7 @@ export default async function SettingsPage() {
     email: account.email,
     role: account.role,
     isActive: account.isActive,
+    notifyPlanning: account.notifyPlanning,
     lastLoginAt: account.lastLoginAt?.toISOString() ?? null,
     isSelf: account.id === me.id,
   }));

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { addDays, formatDateDe, startOfIsoWeek, today } from "@/lib/dates";
 import { getPlanBoard } from "@/lib/scheduler/service";
+import { getSetting } from "@/lib/settings";
+import { DeskFeed } from "@/components/app/desk-feed";
 import { requireUser } from "@/lib/session";
 import { canPlan } from "@/lib/auth";
 import { SLOT_KIND_LABEL } from "@/lib/labels";
@@ -25,7 +27,10 @@ export default async function PlanPage(props: PageProps<"/schedule">) {
       : today(),
   );
   const end = addDays(start, weeks * 7 - 1);
-  const days = await getPlanBoard(start, end);
+  const [days, calendar] = await Promise.all([
+    getPlanBoard(start, end),
+    getSetting("calendar"),
+  ]);
 
   const href = (from: string, w = weeks) => `/schedule?from=${from}&weeks=${w}`;
 
@@ -94,6 +99,12 @@ export default async function PlanPage(props: PageProps<"/schedule">) {
         highlightApprenticeId={user.apprenticeId}
         editable={canPlan(user.role)}
       />
+
+      {calendar.deskFeedToken && (
+        <div className="mt-8 max-w-xl">
+          <DeskFeed token={calendar.deskFeedToken} />
+        </div>
+      )}
     </>
   );
 }

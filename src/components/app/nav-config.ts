@@ -25,7 +25,7 @@ import type { Role } from "@/db/schema";
 export type NavContext = {
   role: Role;
   apprenticeId: string | null;
-  deskStaffId: string | null;
+  deskStaffIds: string[];
 };
 
 export type NavItem = {
@@ -42,7 +42,7 @@ export type NavGroup = {
 };
 
 const isApprentice = (ctx: NavContext) => Boolean(ctx.apprenticeId);
-const isDeskStaff = (ctx: NavContext) => Boolean(ctx.deskStaffId);
+const isDeskStaff = (ctx: NavContext) => ctx.deskStaffIds.length > 0;
 
 export const NAV_GROUPS: NavGroup[] = [
   {

@@ -76,6 +76,13 @@ export const users = pgTable(
     /** Objekt-ID aus Microsoft Entra ID (oid claim). */
     entraOid: text(),
     role: roleEnum().notNull().default("APPRENTICE"),
+    /**
+     * Erhält diese Person die Hinweise für die Planung – Krankmeldungen und
+     * unbesetzte Tage? Nur für ADMIN und PLANNER von Belang. Absichtlich eine
+     * Einstellung und keine eigene Rolle: Wer planen darf, darf planen; ob er
+     * dabei benachrichtigt werden möchte, ist eine andere Frage.
+     */
+    notifyPlanning: boolean().notNull().default(true),
     isActive: boolean().notNull().default(true),
     image: text(),
     lastLoginAt: timestamp({ withTimezone: true }),
@@ -210,7 +217,12 @@ export const deskStaff = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("desk_staff_user_unique").on(t.userId), index("desk_staff_email_idx").on(t.email)],
+  /*
+   * Kein `unique` auf userId: An der Zentrale teilen sich mehrere Personen
+   * ein Sammelkonto. Wer damit angemeldet ist, wählt beim Eintragen aus, für
+   * wen der Eintrag gilt.
+   */
+  (t) => [index("desk_staff_user_idx").on(t.userId), index("desk_staff_email_idx").on(t.email)],
 );
 
 /** Wer sitzt an welchem Wochentag regulär in der Zentrale. */
@@ -366,6 +378,8 @@ export const notifications = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     apprenticeId: uuid().references(() => apprentices.id, { onDelete: "cascade" }),
+    /** Empfänger, wenn die Nachricht an ein Benutzerkonto geht (Planungshinweise). */
+    userId: uuid().references(() => users.id, { onDelete: "cascade" }),
     channel: notificationChannelEnum().notNull(),
     target: text().notNull(),
     subject: text(),

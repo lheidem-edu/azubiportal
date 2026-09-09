@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { nextWorkWeeks, today } from "@/lib/dates";
 import { dispatchDailyReminders } from "@/lib/notify";
+import { notifyCoverageGaps } from "@/lib/notify/planning";
 import { applyPlan } from "@/lib/scheduler/service";
 import { getSetting } from "@/lib/settings";
 
@@ -33,7 +34,10 @@ async function handle(request: Request) {
         const result = await dispatchDailyReminders(today(), {
           force: url.searchParams.get("force") === "1",
         });
-        return NextResponse.json({ job, ...result });
+        // Gleicher Lauf, zweiter Zweck: Wer plant, soll früh erfahren, wenn
+        // ein Tag ohne Vertretung dasteht.
+        const gaps = await notifyCoverageGaps();
+        return NextResponse.json({ job, ...result, luecken: gaps });
       }
       case "plan": {
         const [general, planning] = await Promise.all([

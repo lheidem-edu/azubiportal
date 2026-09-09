@@ -211,7 +211,8 @@ function subjectFor(entries: AssignmentView[], date: IsoDate) {
 }
 
 type DeliverInput = {
-  apprenticeId: string;
+  apprenticeId?: string | null;
+  userId?: string | null;
   channel: "EMAIL" | "TEAMS";
   target: string;
   dedupeKey: string;
@@ -221,7 +222,7 @@ type DeliverInput = {
   send: () => Promise<{ ok: boolean; error?: string }>;
 };
 
-async function deliver(input: DeliverInput) {
+export async function deliver(input: DeliverInput) {
   const existing = await db.query.notifications.findFirst({
     where: and(
       eq(notifications.dedupeKey, input.dedupeKey),
@@ -234,7 +235,8 @@ async function deliver(input: DeliverInput) {
 
   const outcome = await input.send();
   const values = {
-    apprenticeId: input.apprenticeId,
+    apprenticeId: input.apprenticeId ?? null,
+    userId: input.userId ?? null,
     channel: input.channel,
     target: input.target,
     subject: input.subject,

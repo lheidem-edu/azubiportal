@@ -46,7 +46,7 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
   const view = buildMonthView({ ...overview, people: sortPeople(overview.people) }, month);
   const previous = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
-  const ownId = user.apprenticeId ?? user.deskStaffId;
+  const ownId = user.apprenticeId ?? user.deskStaffIds[0] ?? null;
 
   return (
     <>

@@ -18,7 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { setUserActive, setUserRole } from "@/app/actions/apprentices";
+import {
+  setUserActive,
+  setUserNotifyPlanning,
+  setUserRole,
+} from "@/app/actions/apprentices";
 import { useAction } from "@/lib/use-action";
 import { formatDateDe } from "@/lib/dates";
 
@@ -28,6 +32,7 @@ export type UserRow = {
   email: string;
   role: "ADMIN" | "PLANNER" | "APPRENTICE" | "DESK";
   isActive: boolean;
+  notifyPlanning: boolean;
   lastLoginAt: string | null;
   isSelf: boolean;
 };
@@ -50,6 +55,7 @@ export function UserRoles({ rows }: { rows: UserRow[] }) {
           <TableHead>Benutzer</TableHead>
           <TableHead>Letzter Login</TableHead>
           <TableHead>Rolle</TableHead>
+          <TableHead>Planungshinweise</TableHead>
           <TableHead>Zugang</TableHead>
         </TableRow>
       </TableHeader>
@@ -91,6 +97,22 @@ export function UserRoles({ rows }: { rows: UserRow[] }) {
                   ))}
                 </SelectContent>
               </Select>
+            </TableCell>
+            <TableCell>
+              {row.role === "ADMIN" || row.role === "PLANNER" ? (
+                <Switch
+                  checked={row.notifyPlanning}
+                  disabled={pending}
+                  aria-label="Hinweise zu Krankmeldungen und unbesetzten Tagen"
+                  onCheckedChange={(checked) =>
+                    execute(() => setUserNotifyPlanning(row.id, checked), {
+                      onSuccess: () => router.refresh(),
+                    })
+                  }
+                />
+              ) : (
+                <span className="text-muted-foreground text-xs">–</span>
+              )}
             </TableCell>
             <TableCell>
               <Switch

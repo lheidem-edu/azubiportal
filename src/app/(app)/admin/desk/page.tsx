@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { requirePlanner } from "@/lib/session";
 import { getSetting } from "@/lib/settings";
 import { DeskManager, type StaffRow } from "./desk-manager";
-import { DeskFeed } from "./desk-feed";
+import { DeskFeed } from "@/components/app/desk-feed";
 
 export const metadata = { title: "Zentrale" };
 
@@ -42,7 +42,7 @@ export default async function DeskAdminPage() {
       />
       <DeskManager staff={rows} />
       <div className="mt-6">
-        <DeskFeed token={calendar.deskFeedToken} />
+        <DeskFeed token={calendar.deskFeedToken} manageable />
       </div>
     </>
   );

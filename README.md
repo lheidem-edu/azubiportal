@@ -52,6 +52,10 @@ wäre.
 - **Kalender für die Zentrale** – ein Abo für den Empfangsplatz zeigt für jeden
   Tag die eingeteilte Person; wer ausgefallen ist und wer einspringt, steht in
   der Beschreibung des Termins. Einzurichten unter *Verwaltung → Zentrale*.
+- **Schulfreie Tage** – neben den Ferien lassen sich einzelne Tage eintragen,
+  an denen die Schule zubleibt: bewegliche Ferientage und pädagogische Tage.
+  Der Betrieb läuft weiter, die Auszubildenden sind also da und können die
+  Zentrale übernehmen.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
   für jedes Jahr aus der Osterformel berechnet, auch weit in der Zukunft. Es
   gibt keinen Stichtag, ab dem der Kalender gepflegt werden müsste.
@@ -271,13 +275,38 @@ Die Tabelle `public_holidays` speichert nur noch **Abweichungen** davon:
 - abweichende Bezeichnungen
 
 Unter *Verwaltung → Kalender* lässt sich jedes Jahr aufrufen und einzeln
-anpassen; das Rücksetzen einer Anpassung stellt den berechneten Wert wieder
+anpassen – dort stehen auch die Schulferien und die einzelnen schulfreien Tage; das Rücksetzen einer Anpassung stellt den berechneten Wert wieder
 her. Wer aus einer früheren Fassung noch vorberechnete Zeilen in der Tabelle
 hat, kann sie gefahrlos löschen:
 
 ```sql
 DELETE FROM public_holidays WHERE source = 'AUTO' AND is_active = true;
 ```
+
+## Hinweise an die Planung
+
+Zwei Dinge brauchen eine Entscheidung von Hand und gehen deshalb per E-Mail an
+die Planungsverantwortlichen:
+
+- **Krankmeldungen**, sobald sie eingetragen werden. Die Nachricht sagt dazu,
+  ob dadurch ein Tag unbesetzt bleibt oder ob nichts zu tun ist.
+- **Unbesetzte Tage** – täglich zusammen mit den Morgenerinnerungen geprüft.
+  Gemeldet wird nur, wo etwas geplant war und trotzdem niemand übrig ist; Tage
+  jenseits des Planungshorizonts sind noch gar nicht besetzt und keine Lücke.
+
+Wer diese Hinweise bekommt, steht unter *Verwaltung → Einstellungen* als
+Schalter je Benutzer. Bewusst eine Einstellung und keine eigene Rolle: Wer
+planen darf, darf planen – ob er dabei benachrichtigt werden möchte, ist eine
+andere Frage und ändert sich auch mal, ohne dass jemand Rechte bekommt oder
+verliert.
+
+## Ein Konto für mehrere Personen
+
+An der Zentrale teilen sich mehrere Personen ein Sammelkonto. Dafür lassen sich
+in *Verwaltung → Zentrale* mehrere Einträge derselben E-Mail-Adresse zuordnen.
+Wer mit dem Sammelkonto angemeldet ist, wählt beim Eintragen einer Abwesenheit
+aus, für wen der Eintrag gilt, und sieht die Einträge aller zugeordneten
+Personen.
 
 ## Wann geplant wird
 

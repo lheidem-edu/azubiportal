@@ -9,7 +9,9 @@ export type SessionUser = {
   image?: string | null;
   role: Role;
   apprenticeId: string | null;
-  deskStaffId: string | null;
+  /** Personen der Zentrale, für die dieses Konto eintragen darf. */
+  deskStaffIds: string[];
+  notifyPlanning: boolean;
 };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -22,7 +24,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     image: session.user.image,
     role: session.user.role,
     apprenticeId: session.user.apprenticeId,
-    deskStaffId: session.user.deskStaffId,
+    deskStaffIds: session.user.deskStaffIds ?? [],
+    notifyPlanning: session.user.notifyPlanning ?? true,
   };
 }
 

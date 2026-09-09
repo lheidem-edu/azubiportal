@@ -14,7 +14,18 @@ import { useAction } from "@/lib/use-action";
  * Der Gesamtkalender zum Einbinden am Empfangsplatz. Er zeigt für jeden Tag,
  * wer die Vertretung übernimmt – auch wenn jemand kurzfristig einspringt.
  */
-export function DeskFeed({ token }: { token: string }) {
+/**
+ * Das Abo für den Empfangsplatz. Ansehen und kopieren darf jeder Angemeldete –
+ * der Plan ist ohnehin für alle einsehbar. Adresse zurücksetzen oder den
+ * Kalender abschalten ist Sache der Verwaltung, deshalb `manageable`.
+ */
+export function DeskFeed({
+  token,
+  manageable = false,
+}: {
+  token: string;
+  manageable?: boolean;
+}) {
   const router = useRouter();
   const { pending, execute } = useAction();
   const [current, setCurrent] = useState(token);
@@ -64,6 +75,7 @@ export function DeskFeed({ token }: { token: string }) {
               </li>
               <li>Adresse einfügen und bestätigen.</li>
             </ol>
+            {manageable && (
             <div className="flex flex-wrap items-center gap-2">
               <ConfirmButton
                 variant="outline"
@@ -102,6 +114,7 @@ export function DeskFeed({ token }: { token: string }) {
                 Abschalten
               </ConfirmButton>
             </div>
+            )}
             <p className="text-muted-foreground text-xs">
               Wer die Adresse kennt, sieht den Plan – sie gehört nicht nach außen.
             </p>

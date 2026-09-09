@@ -14,8 +14,13 @@ declare module "next-auth" {
       role: Role;
       /** Gesetzt, wenn das Konto zu einem Auszubildenden gehört. */
       apprenticeId: string | null;
-      /** Gesetzt, wenn das Konto zur festen Zentrale-Besetzung gehört. */
-      deskStaffId: string | null;
+      /**
+       * Personen der Zentrale, für die dieses Konto eintragen darf. Mehrere,
+       * weil dort ein Sammelkonto genutzt wird.
+       */
+      deskStaffIds: string[];
+      /** Möchte Hinweise für die Planung erhalten. */
+      notifyPlanning: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -114,17 +119,23 @@ async function linkPersonByEmail(userId: string, email: string) {
 }
 
 async function loadClaims(userId: string) {
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    with: {
-      apprentice: { columns: { id: true } },
-      deskStaff: { columns: { id: true } },
-    },
-  });
+  const [user, staff] = await Promise.all([
+    db.query.users.findFirst({
+      where: eq(users.id, userId),
+      with: { apprentice: { columns: { id: true } } },
+    }),
+    // Mehrere: An der Zentrale teilen sich Personen ein Sammelkonto.
+    db
+      .select({ id: deskStaff.id })
+      .from(deskStaff)
+      .where(eq(deskStaff.userId, userId))
+      .orderBy(deskStaff.name),
+  ]);
   return {
     role: (user?.role ?? "APPRENTICE") as Role,
     apprenticeId: user?.apprentice?.id ?? null,
-    deskStaffId: user?.deskStaff?.id ?? null,
+    deskStaffIds: staff.map((entry) => entry.id),
+    notifyPlanning: user?.notifyPlanning ?? true,
     isActive: user?.isActive ?? false,
     name: user?.name ?? "",
   };
@@ -191,7 +202,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const claims = await loadClaims(String(token.userId));
         token.role = claims.role;
         token.apprenticeId = claims.apprenticeId;
-        token.deskStaffId = claims.deskStaffId;
+        token.deskStaffIds = claims.deskStaffIds;
+        token.notifyPlanning = claims.notifyPlanning;
         token.name = claims.name || token.name;
       }
       return token;
@@ -200,7 +212,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.userId) session.user.id = String(token.userId);
       session.user.role = (token.role as Role) ?? "APPRENTICE";
       session.user.apprenticeId = (token.apprenticeId as string | null) ?? null;
-      session.user.deskStaffId = (token.deskStaffId as string | null) ?? null;
+      session.user.deskStaffIds = (token.deskStaffIds as string[] | undefined) ?? [];
+      session.user.notifyPlanning = (token.notifyPlanning as boolean | undefined) ?? true;
       return session;
     },
   },

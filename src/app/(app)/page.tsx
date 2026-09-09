@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, gte, inArray, sql } from "drizzle-orm";
 import {
   ArrowRight,
   ArrowUp,
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
       .select({ last: sql<IsoDate | null>`max(${assignments.date})` })
       .from(assignments)
       .then((r) => r[0].last),
-    user.deskStaffId ? loadDeskInfo(user.deskStaffId, day) : Promise.resolve(null),
+    user.deskStaffIds.length > 0 ? loadDeskInfo(user.deskStaffIds, day) : Promise.resolve(null),
   ]);
 
   const todayBoard = board.find((d) => d.date === day);
@@ -68,8 +68,8 @@ export default async function DashboardPage() {
         actions={
           user.apprenticeId ? (
             <AwayTodayButton personKind="APPRENTICE" personId={user.apprenticeId} date={day} />
-          ) : user.deskStaffId ? (
-            <AwayTodayButton personKind="DESK" personId={user.deskStaffId} date={day} />
+          ) : user.deskStaffIds.length === 1 ? (
+            <AwayTodayButton personKind="DESK" personId={user.deskStaffIds[0]} date={day} />
           ) : null
         }
       />
@@ -294,14 +294,17 @@ function dutySummary(day: BoardDay): string {
   return labels || "Keine Vertretung nötig";
 }
 
-/** Wochentage und kommende Abwesenheiten der festen Zentrale-Besetzung. */
-async function loadDeskInfo(staffId: string, from: IsoDate) {
+/**
+ * Wochentage und kommende Abwesenheiten der Zentrale-Besetzung. Nutzt ein
+ * Sammelkonto mehrere Personen, sind es die aller zugeordneten.
+ */
+async function loadDeskInfo(staffIds: string[], from: IsoDate) {
   const [shifts, upcoming] = await Promise.all([
-    db.select().from(deskShifts).where(eq(deskShifts.staffId, staffId)),
+    db.select().from(deskShifts).where(inArray(deskShifts.staffId, staffIds)),
     db
       .select()
       .from(absences)
-      .where(and(eq(absences.deskStaffId, staffId), gte(absences.endDate, from)))
+      .where(and(inArray(absences.deskStaffId, staffIds), gte(absences.endDate, from)))
       .orderBy(absences.startDate)
       .limit(5),
   ]);

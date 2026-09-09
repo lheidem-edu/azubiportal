@@ -1,11 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/app/date-picker";
 import { ConfirmButton } from "@/components/app/confirm-button";
-import { deleteSchoolHoliday, importSchoolHolidays } from "@/app/actions/calendar";
+import {
+  createSchoolHoliday,
+  deleteSchoolHoliday,
+  importSchoolHolidays,
+} from "@/app/actions/calendar";
 import { useAction } from "@/lib/use-action";
 import { formatRangeDe, today } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -86,6 +94,8 @@ export function SchoolHolidayList({
         </ul>
       )}
 
+      <SchoolFreeDayForm />
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
@@ -103,5 +113,69 @@ export function SchoolHolidayList({
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Einzelne schulfreie Tage: bewegliche Ferientage und pädagogische Tage. Die
+ * Schule bleibt zu, der Betrieb nicht – die Auszubildenden sind an solchen
+ * Tagen also da und können die Zentrale übernehmen.
+ */
+function SchoolFreeDayForm() {
+  const router = useRouter();
+  const { pending, execute } = useAction();
+  const [name, setName] = useState("Beweglicher Ferientag");
+  const [date, setDate] = useState(today());
+  const [until, setUntil] = useState(today());
+
+  return (
+    <form
+      className="bg-muted/40 grid gap-3 rounded-lg border p-3 sm:flex sm:flex-wrap sm:items-end"
+      onSubmit={(event) => {
+        event.preventDefault();
+        execute(
+          () => createSchoolHoliday({ name, startDate: date, endDate: until }),
+          {
+            onSuccess: () => {
+              setName("Beweglicher Ferientag");
+              router.refresh();
+            },
+          },
+        );
+      }}
+    >
+      <div className="space-y-1.5 sm:w-56">
+        <Label htmlFor="freeDayName">Schulfreier Tag</Label>
+        <Input
+          id="freeDayName"
+          required
+          value={name}
+          placeholder="z.B. Pädagogischer Tag"
+          onChange={(event) => setName(event.target.value)}
+        />
+      </div>
+      <DatePicker
+        id="freeDayFrom"
+        label="Von"
+        className="sm:w-44"
+        value={date}
+        onChange={(value) => {
+          setDate(value);
+          if (value > until) setUntil(value);
+        }}
+      />
+      <DatePicker
+        id="freeDayTo"
+        label="Bis"
+        className="sm:w-44"
+        min={date}
+        value={until}
+        onChange={setUntil}
+      />
+      <Button type="submit" variant="outline" size="sm" disabled={pending} className="w-full sm:w-auto">
+        <Plus className="size-4" />
+        Eintragen
+      </Button>
+    </form>
   );
 }
