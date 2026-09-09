@@ -62,8 +62,11 @@ export function MonthCalendar({ view, today }: { view: MonthView; today?: IsoDat
                     entry.isWeekend || entry.holiday || entry.closure
                       ? "text-muted-foreground/60"
                       : "text-muted-foreground",
-                    entry.date === today && "text-primary font-semibold",
-                    selected === entry.date && "bg-accent text-accent-foreground",
+                    entry.date === today &&
+                      "border-primary text-primary border-b-2 font-semibold",
+                    // Dieselbe Tönung wie in den Zeilen, damit die Auswahl als
+                    // durchgehende Spalte lesbar ist.
+                    selected === entry.date && "bg-primary/20 text-foreground font-semibold",
                   )}
                 >
                   <span>{Number(entry.date.slice(8, 10))}</span>
@@ -74,7 +77,9 @@ export function MonthCalendar({ view, today }: { view: MonthView; today?: IsoDat
           </div>
 
           {/* Eine Zeile je Person */}
-          <div className="mt-1 space-y-1">
+          {/* Ohne Abstand zwischen den Zeilen, damit die ausgewählte
+              Spalte als durchgehendes Band lesbar bleibt. */}
+          <div className="mt-1">
             {view.people.map((person) => (
               <PersonRow
                 key={`${person.kind}:${person.id}`}
@@ -167,7 +172,7 @@ function PersonRow({
 
   return (
     <div className="flex items-center">
-      <div className="bg-card sticky left-0 z-20 flex h-6 w-28 shrink-0 items-center gap-1 border-r pr-2 text-xs sm:w-40">
+      <div className="bg-card border-border/40 sticky left-0 z-20 flex h-6 w-28 shrink-0 items-center gap-1 border-r border-b pr-2 text-xs sm:w-40">
         <span className="truncate">{person.name}</span>
         {person.kind === "DESK" && (
           <span className="text-muted-foreground shrink-0 text-[10px]">Z</span>
@@ -175,19 +180,24 @@ function PersonRow({
       </div>
 
       <div className="relative grid h-6" style={{ gridTemplateColumns: columns }}>
-        {/* Hintergrund: freie Tage und der heutige Tag */}
-        {days.map((day) => (
+        {/*
+          Jede Zelle bekommt ihre Spalte ausdrücklich zugewiesen. Ohne das
+          verdrängen die Balken – die ja feste Spalten belegen – die
+          automatisch platzierten Zellen nach rechts, und das Raster läuft aus
+          dem Monat heraus.
+        */}
+        {days.map((day, index) => (
           <button
             key={day.date}
             type="button"
             aria-label={formatDateLongDe(day.date)}
             onClick={() => onSelect(day.date)}
-            style={{ gridRow: 1 }}
+            style={{ gridRow: 1, gridColumn: index + 1 }}
             className={cn(
-              "border-border/40 h-6 border-r last:border-r-0",
+              "border-border/40 h-6 border-r border-b last:border-r-0",
               day.isWeekend || day.holiday || day.closure ? "bg-muted" : "bg-muted/25",
-              day.date === today && "bg-primary/10",
-              selected === day.date && "ring-primary/50 ring-1 ring-inset",
+              day.date === today && "bg-primary/[0.06]",
+              selected === day.date && "bg-primary/20",
             )}
           />
         ))}
