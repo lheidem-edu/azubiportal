@@ -5,6 +5,7 @@ import {
   ArrowUp,
   CalendarCheck,
   Clock,
+  MailWarning,
   TriangleAlert,
   UserRoundX,
 } from "lucide-react";
@@ -32,6 +33,8 @@ import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { canPlan } from "@/lib/auth";
 import { getSetting } from "@/lib/settings";
+import { failedNotificationCount } from "@/lib/notify";
+import { gapsFromBoard } from "@/lib/notify/planning";
 import { AwayTodayButton } from "./sick-today-button";
 
 export const metadata = { title: "Start" };
@@ -41,7 +44,9 @@ export default async function DashboardPage() {
   const day = today();
   const general = await getSetting("general");
 
-  const [board, mine, planEnd, deskInfo] = await Promise.all([
+  const planner = canPlan(user.role);
+
+  const [board, mine, planEnd, deskInfo, failedMails, smtp] = await Promise.all([
     getPlanBoard(day, addDays(day, 6)),
     user.apprenticeId
       ? getUpcomingForApprentice(user.apprenticeId, day, addDays(day, 60))
@@ -51,14 +56,21 @@ export default async function DashboardPage() {
       .from(assignments)
       .then((r) => r[0].last),
     user.deskStaffIds.length > 0 ? loadDeskInfo(user.deskStaffIds, day) : Promise.resolve(null),
+    planner ? failedNotificationCount(addDays(day, -1)) : Promise.resolve(0),
+    planner ? getSetting("smtp") : Promise.resolve(null),
   ]);
 
   const todayBoard = board.find((d) => d.date === day);
-  const upcomingGaps = board.filter(
-    (d) => d.isWorkday && d.duties.some((duty) => !duty.hasActing),
-  );
+  /*
+   * Dieselbe Regel wie für die Hinweise per E-Mail: Eine Lücke ist ein Tag,
+   * an dem geplant wurde und trotzdem niemand übrig ist. Noch gar nicht
+   * geplante Tage sind keine Lücke – dafür gibt es den Hinweis zum Horizont.
+   */
+  const upcomingGaps = gapsFromBoard(board);
+  const gapDates = [...new Set(upcomingGaps.map((gap) => gap.date))];
   const horizonEnd = nextWorkWeeks(general.planningWeeks, day).end;
   const planIncomplete = !planEnd || planEnd < horizonEnd;
+  const mailBroken = smtp !== null && (!smtp.enabled || !smtp.host);
 
   return (
     <>
@@ -74,7 +86,7 @@ export default async function DashboardPage() {
         }
       />
 
-      {canPlan(user.role) && (planIncomplete || upcomingGaps.length > 0) && (
+      {planner && (planIncomplete || gapDates.length > 0 || mailBroken || failedMails > 0) && (
         <div className="mb-6 space-y-3">
           {planIncomplete && (
             <Alert>
@@ -93,18 +105,50 @@ export default async function DashboardPage() {
               </AlertDescription>
             </Alert>
           )}
-          {upcomingGaps.length > 0 && (
+          {gapDates.length > 0 && (
             <Alert variant="destructive">
               <UserRoundX />
               <AlertTitle>Lücken in den nächsten 7 Tagen</AlertTitle>
               <AlertDescription>
-                {upcomingGaps.map((d) => formatDateDe(d.date)).join(", ")} – hier fehlt eine
-                Vertretung.{" "}
+                {gapDates.map(formatDateDe).join(", ")} – hier fehlt eine Vertretung.{" "}
                 <Link href="/planning" className="underline underline-offset-4">
                   Bearbeiten
                 </Link>
               </AlertDescription>
             </Alert>
+          )}
+          {/*
+            Ohne Postausgang bleiben Krankmeldung und Lückenhinweis liegen,
+            ohne dass es jemandem auffällt – deshalb steht es hier und nicht
+            nur im Versandprotokoll.
+          */}
+          {mailBroken ? (
+            <Alert>
+              <MailWarning />
+              <AlertTitle>E-Mail-Versand ist nicht eingerichtet</AlertTitle>
+              <AlertDescription>
+                Krankmeldungen, Lückenhinweise und Morgenerinnerungen werden nicht zugestellt.{" "}
+                <Link href="/admin/settings" className="underline underline-offset-4">
+                  Einstellungen öffnen
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            failedMails > 0 && (
+              <Alert variant="destructive">
+                <MailWarning />
+                <AlertTitle>
+                  {failedMails} Nachricht{failedMails === 1 ? "" : "en"} nicht zugestellt
+                </AlertTitle>
+                <AlertDescription>
+                  Seit gestern fehlgeschlagen – möglicherweise hat jemand einen Hinweis nicht
+                  bekommen.{" "}
+                  <Link href="/admin/notifications" className="underline underline-offset-4">
+                    Protokoll ansehen
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            )
           )}
         </div>
       )}

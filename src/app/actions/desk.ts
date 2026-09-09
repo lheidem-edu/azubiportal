@@ -14,7 +14,7 @@ import {
   run,
   writeAudit,
 } from "@/lib/action-utils";
-import { weekdayLabel } from "@/lib/dates";
+import { formatDateDe, weekdayLabel } from "@/lib/dates";
 import { setSetting } from "@/lib/settings";
 
 function paths() {
@@ -152,6 +152,28 @@ export async function createDeskShift(input: unknown) {
     await writeAudit(user, "desk_shift.create", "desk_shift", created.id, data);
     paths();
     return ok(`${weekdayLabel(data.weekday)} zugeordnet.`);
+  });
+}
+
+/**
+ * Begrenzt eine Zuordnung auf einen Stichtag, statt sie zu entfernen. Wer
+ * einen Wochentag abgibt, hat ihn bis dahin ja gehabt – ein Löschen würde die
+ * vergangenen Pläne um ihre Begründung bringen.
+ */
+export async function endDeskShift(id: string, validTo: unknown) {
+  return run(async () => {
+    const date = isoDateSchema.parse(validTo);
+    const user = await requirePlannerAction();
+    const shift = await db.query.deskShifts.findFirst({ where: eq(deskShifts.id, id) });
+    if (!shift) return fail("Zuordnung nicht gefunden.");
+    if (date < shift.validFrom) {
+      return fail(`Der Stichtag liegt vor dem Beginn (${weekdayLabel(shift.weekday)}).`);
+    }
+
+    await db.update(deskShifts).set({ validTo: date }).where(eq(deskShifts.id, id));
+    await writeAudit(user, "desk_shift.end", "desk_shift", id, { validTo: date });
+    paths();
+    return ok(`${weekdayLabel(shift.weekday)} läuft bis ${formatDateDe(date)}.`);
   });
 }
 

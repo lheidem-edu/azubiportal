@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TableScroll } from "@/components/app/table-scroll";
 import {
@@ -12,8 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConfirmButton } from "@/components/app/confirm-button";
-import { deleteSchoolTerm } from "@/app/actions/school";
+import { deleteSchoolTerm, endSchoolTerm } from "@/app/actions/school";
+import { EndOrDeleteDialog } from "@/components/app/end-or-delete-dialog";
 import { useAction } from "@/lib/use-action";
 import { formatDateDe, today, weekdayLabel, weekdayShort } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -93,25 +92,35 @@ export function SchoolMatrix({
                               expired && "opacity-50",
                             )}
                           >
-                            <div className="flex items-center gap-1">
-                              <Badge variant={term.intervalWeeks > 1 ? "secondary" : "default"}>
-                                {term.intervalWeeks > 1 ? `alle ${term.intervalWeeks} Wo.` : "Schule"}
-                              </Badge>
-                              <ConfirmButton
-                                size="icon"
-                                disabled={pending}
-                                title="Schultag entfernen?"
-                                description={`${person.name}, ${weekdayLabel(weekday)}. Bereits erzeugte Pläne bleiben unverändert – bitte danach neu planen.`}
-                                confirmLabel="Entfernen"
-                                onConfirm={() =>
-                                  execute(() => deleteSchoolTerm(term.id), {
-                                    onSuccess: () => router.refresh(),
-                                  })
-                                }
-                              >
-                                <Trash2 className="size-3.5" />
-                              </ConfirmButton>
-                            </div>
+                            <EndOrDeleteDialog
+                              trigger={
+                                <button aria-label="Schultag bearbeiten">
+                                  <Badge
+                                    variant={term.intervalWeeks > 1 ? "secondary" : "default"}
+                                    className="hover:bg-accent cursor-pointer"
+                                  >
+                                    {term.intervalWeeks > 1
+                                      ? `alle ${term.intervalWeeks} Wo.`
+                                      : "Schule"}
+                                  </Badge>
+                                </button>
+                              }
+                              title={`Schultag ${weekdayLabel(weekday)} – ${person.name}`}
+                              description={`Eingetragen ab ${formatDateDe(term.validFrom)}. Endet der Berufsschulblock, setze einen Stichtag – die bisherigen Pläne behalten damit ihre Begründung.`}
+                              minDate={term.validFrom}
+                              deleteWarning="Der Schultag verschwindet vollständig. Vergangene Pläne sehen danach so aus, als wäre die Person an diesem Wochentag nie in der Schule gewesen."
+                              pending={pending}
+                              onEnd={(validTo) =>
+                                execute(() => endSchoolTerm(term.id, validTo), {
+                                  onSuccess: () => router.refresh(),
+                                })
+                              }
+                              onDelete={() =>
+                                execute(() => deleteSchoolTerm(term.id), {
+                                  onSuccess: () => router.refresh(),
+                                })
+                              }
+                            />
                             <span className="text-muted-foreground text-[11px]">
                               ab {formatDateDe(term.validFrom)}
                               {term.validTo ? ` bis ${formatDateDe(term.validTo)}` : ""}

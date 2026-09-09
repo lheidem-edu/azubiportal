@@ -491,6 +491,44 @@ describe("Planungs-Engine", () => {
     expect(mondayPrimaries.find((a) => a.slotId === BREAKFAST.id)?.existingId).toBe("fixed-1");
   });
 
+  it("lässt im Ergänzungsmodus auch ungesperrte Einteilungen stehen", () => {
+    /*
+     * Der wöchentliche Lauf greift zweimal über dieselbe Spanne. Ohne diese
+     * Einschränkung würde ein bereits mitgeteilter Termin neu ausgewürfelt.
+     */
+    const existing = {
+      id: "vergeben-1",
+      date: "2026-09-07",
+      slotId: BREAKFAST.id,
+      rank: 1,
+      apprenticeId: "d",
+      isLocked: false,
+      isManual: false,
+    };
+
+    const neuVerteilt = generatePlan(baseInput({ existingAssignments: [existing] }));
+    const ergaenzt = generatePlan(
+      baseInput({
+        existingAssignments: [existing],
+        options: { overwriteExisting: false },
+      }),
+    );
+
+    const primaryOn = (result: ReturnType<typeof generatePlan>, date: string) =>
+      result.days.find((d) => d.date === date)!.duties[0].assigned.find((a) => a.rank === 1)!
+        .apprenticeId;
+
+    // Neu verteilen darf "d" verdrängen – der Lastenausgleich entscheidet neu.
+    expect(primaryOn(neuVerteilt, "2026-09-07")).not.toBe("d");
+    // Ergänzen fasst den Tag nicht an.
+    expect(primaryOn(ergaenzt, "2026-09-07")).toBe("d");
+    expect(ergaenzt.stats.keptLocked).toBe(1);
+
+    // Offene Tage werden trotzdem gefüllt – ergänzen heißt nicht aussetzen.
+    const dienstag = ergaenzt.days.find((d) => d.date === "2026-09-08")!;
+    expect(dienstag.duties[0].assigned.some((a) => a.rank === 1)).toBe(true);
+  });
+
   it("meldet einen Konflikt, wenn niemand verfügbar ist", () => {
     const result = generatePlan(
       baseInput({

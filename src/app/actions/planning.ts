@@ -13,9 +13,23 @@ import {
   run,
   writeAudit,
 } from "@/lib/action-utils";
-import { addDays, formatRangeDe, nextWorkWeeks } from "@/lib/dates";
-import { applyPlan, loadSchedulerInput, previewPlan } from "@/lib/scheduler/service";
-import { buildAvailabilityLookup, checkAvailability } from "@/lib/scheduler/availability";
+import {
+  addDays,
+  formatRangeDe,
+  nextWorkWeeks,
+  type IsoDate,
+} from "@/lib/dates";
+import {
+  applyPlan,
+  listApprentices,
+  loadSchedulerInput,
+  previewPlan,
+} from "@/lib/scheduler/service";
+import type { SchedulerResult } from "@/lib/scheduler/types";
+import {
+  buildAvailabilityLookup,
+  checkAvailability,
+} from "@/lib/scheduler/availability";
 import { getSetting } from "@/lib/settings";
 
 function paths() {
@@ -25,8 +39,25 @@ function paths() {
   revalidatePath("/");
 }
 
+/**
+ * Wie mit bereits vergebenen Einteilungen umgegangen wird.
+ *
+ * `fill` ergänzt nur, was noch offen ist – wer seinen Termin schon kennt,
+ * behält ihn. Das ist der Normalfall, auch für den nächtlichen Lauf.
+ * `redistribute` wirft alles Ungesperrte weg und verteilt neu; das ändert
+ * Termine, die vielleicht schon jemand im Kalender stehen hat, und ist
+ * deshalb eine bewusste Handlung.
+ */
+export type PlanMode = "fill" | "redistribute";
+
+const modeSchema = z.enum(["fill", "redistribute"]).default("fill");
+
 const rangeSchema = z
-  .object({ rangeStart: isoDateSchema, rangeEnd: isoDateSchema })
+  .object({
+    rangeStart: isoDateSchema,
+    rangeEnd: isoDateSchema,
+    mode: modeSchema,
+  })
   .refine((v) => v.rangeStart <= v.rangeEnd, {
     message: "Das Enddatum darf nicht vor dem Startdatum liegen.",
     path: ["rangeEnd"],
@@ -36,33 +67,106 @@ const rangeSchema = z
     path: ["rangeEnd"],
   });
 
-/** Erzeugt einen Vorschlag zur Ansicht, ohne ihn zu speichern. */
+/** Fasst zusammen, was ein Lauf bewirkt hat – oder bewirken würde. */
+function summarize(stats: SchedulerResult["stats"], mode: PlanMode): string {
+  const kept =
+    stats.keptLocked > 0
+      ? ` ${stats.keptLocked} bestehende Einteilung${stats.keptLocked === 1 ? "" : "en"} unverändert.`
+      : "";
+  return mode === "redistribute"
+    ? `${stats.daysPlanned} Tage neu verteilt, ${stats.slotsPlanned} Einteilungen.${kept}`
+    : `${stats.daysPlanned} Tage geplant, ${stats.slotsPlanned} Einteilungen.${kept}`;
+}
+
+/** Eine Zeile der Vorschau: ein Dienst an einem Tag mit den vorgesehenen Namen. */
+export type PreviewEntry = {
+  rank: number;
+  name: string;
+  /** Stand schon so im Plan – wird von diesem Lauf nicht angefasst. */
+  kept: boolean;
+};
+
+export type PreviewDay = {
+  date: IsoDate;
+  isWorkday: boolean;
+  skipReason?: string;
+  duties: { key: string; label: string; entries: PreviewEntry[] }[];
+};
+
+/**
+ * Rechnet einen Lauf durch, ohne etwas zu speichern. Zeigt neben den Namen
+ * auch, was unverändert bliebe – erst dadurch ist zu erkennen, was der Lauf
+ * tatsächlich anrichtet.
+ */
 export async function previewPlanAction(input: unknown) {
   return run(async () => {
-    const { rangeStart, rangeEnd } = rangeSchema.parse(input);
+    const { rangeStart, rangeEnd, mode } = rangeSchema.parse(input);
     await requirePlannerAction();
-    const result = await previewPlan(rangeStart, rangeEnd);
+    const result = await previewPlan(rangeStart, rangeEnd, {
+      overwriteExisting: mode === "redistribute",
+    });
+
+    const names = new Map(
+      (await listApprentices()).map((person) => [
+        person.id,
+        person.displayName,
+      ]),
+    );
+    const days: PreviewDay[] = result.days.map((day) => ({
+      date: day.date,
+      isWorkday: day.isWorkday,
+      skipReason: day.skipReason,
+      duties: day.duties.map((duty) => ({
+        key: duty.key,
+        label: duty.label,
+        entries: duty.assigned.map((entry) => ({
+          rank: entry.rank,
+          name: names.get(entry.apprenticeId) ?? "Unbekannt",
+          // Übernommene Einträge kommen als gesperrt/manuell aus der Engine.
+          kept: entry.isManual,
+        })),
+      })),
+    }));
+
+    const fresh = days.reduce(
+      (sum, day) =>
+        sum +
+        day.duties.reduce(
+          (n, duty) => n + duty.entries.filter((e) => !e.kept).length,
+          0,
+        ),
+      0,
+    );
+
     return ok(
-      `Vorschau für ${formatRangeDe(rangeStart, rangeEnd)} erstellt.`,
-      { days: result.days, issues: result.issues, stats: result.stats, load: result.load },
+      fresh === 0
+        ? "Es gibt nichts zu ergänzen – der Zeitraum ist vollständig geplant."
+        : `Vorschau für ${formatRangeDe(rangeStart, rangeEnd)}: ${fresh} neue Einteilung${fresh === 1 ? "" : "en"}.`,
+      { days, issues: result.issues, stats: result.stats, mode, fresh },
     );
   });
 }
 
-/** Erzeugt den Plan und speichert ihn. Gesperrte Einträge bleiben erhalten. */
+/**
+ * Erzeugt den Plan und speichert ihn. Gesperrte Einträge bleiben immer
+ * erhalten; im Modus `fill` zusätzlich alle übrigen bereits vergebenen.
+ */
 export async function generatePlanAction(input: unknown) {
   return run(async () => {
-    const { rangeStart, rangeEnd } = rangeSchema.parse(input);
+    const { rangeStart, rangeEnd, mode } = rangeSchema.parse(input);
     const user = await requirePlannerAction();
-    const result = await applyPlan(rangeStart, rangeEnd, user.id);
+    const result = await applyPlan(rangeStart, rangeEnd, user.id, {
+      overwriteExisting: mode === "redistribute",
+    });
     await writeAudit(user, "plan.apply", "plan_run", result.planRunId, {
       rangeStart,
       rangeEnd,
+      mode,
       stats: result.stats,
     });
     paths();
 
-    const summary = `${result.stats.daysPlanned} Tage geplant, ${result.stats.slotsPlanned} Einteilungen.`;
+    const summary = summarize(result.stats, mode);
     return ok(
       result.issues.length > 0
         ? `${summary} ${result.issues.length} Hinweis(e) – bitte prüfen.`
@@ -72,18 +176,35 @@ export async function generatePlanAction(input: unknown) {
   });
 }
 
-/** Plant die eingestellte Zahl an Arbeitswochen ab der kommenden Woche. */
-export async function generateHorizonAction() {
+/**
+ * Plant die eingestellte Zahl an Arbeitswochen ab der kommenden Woche.
+ * Ergänzt nur Offenes – dieselbe Spanne wird Woche für Woche erneut
+ * angefasst, und dabei darf sich Vergebenes nicht verschieben.
+ */
+export async function generateHorizonAction(input?: unknown) {
   return run(async () => {
+    const mode = modeSchema.parse(
+      typeof input === "object" && input !== null && "mode" in input
+        ? (input as { mode?: unknown }).mode
+        : undefined,
+    );
     const user = await requirePlannerAction();
     const general = await getSetting("general");
     const { start, end } = nextWorkWeeks(general.planningWeeks);
-    const result = await applyPlan(start, end, user.id);
-    await writeAudit(user, "plan.apply_horizon", "plan_run", result.planRunId, result.stats);
+    const result = await applyPlan(start, end, user.id, {
+      overwriteExisting: mode === "redistribute",
+    });
+    await writeAudit(user, "plan.apply_horizon", "plan_run", result.planRunId, {
+      mode,
+      ...result.stats,
+    });
     paths();
     return ok(
-      `${formatRangeDe(start, end)} geplant: ${result.stats.slotsPlanned} Einteilungen.`,
-      { issues: result.issues, stats: result.stats },
+      `${formatRangeDe(start, end)}: ${summarize(result.stats, mode)}`,
+      {
+        issues: result.issues,
+        stats: result.stats,
+      },
     );
   });
 }

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, lte, ne, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   absences,
@@ -245,7 +245,17 @@ export async function applyPlan(
       })
       .returning({ id: planRuns.id });
 
-    // Nicht gesperrte Einträge im Zeitraum entfernen
+    /*
+     * Ersetzt wird nur, was der Lauf nicht übernommen hat. Übernommene
+     * Einträge bleiben als Datensatz bestehen – sie werden weiter unten nicht
+     * neu eingefügt, ein Löschen würde sie also ersatzlos entfernen. Das
+     * betrifft im Ergänzungsmodus jede bereits vergebene Einteilung, sonst
+     * nur die gesperrten.
+     */
+    const keptIds = result.assignments
+      .map((a) => a.existingId)
+      .filter((id): id is string => id !== undefined);
+
     await tx
       .delete(assignments)
       .where(
@@ -253,6 +263,7 @@ export async function applyPlan(
           gte(assignments.date, rangeStart),
           lte(assignments.date, rangeEnd),
           eq(assignments.isLocked, false),
+          keptIds.length > 0 ? notInArray(assignments.id, keptIds) : undefined,
         ),
       );
 

@@ -209,9 +209,3 @@ export async function notifyCoverageGaps(days = 14, from: IsoDate = today()) {
   }
   return { sent, gaps: gaps.length };
 }
-
-/** Nur für die Anzeige im Dashboard. */
-export async function countCoverageGaps(days = 14): Promise<number> {
-  const from = today();
-  return (await findCoverageGaps(from, addDays(from, days))).length;
-}

@@ -2,14 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eraser, Sparkles, TriangleAlert } from "lucide-react";
+import { Eraser, Eye, Shuffle, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ConfirmButton } from "@/components/app/confirm-button";
 import { DatePicker } from "@/components/app/date-picker";
-import { clearRange, generateHorizonAction, generatePlanAction } from "@/app/actions/planning";
+import {
+  clearRange,
+  generateHorizonAction,
+  generatePlanAction,
+  previewPlanAction,
+  type PlanMode,
+  type PreviewDay,
+} from "@/app/actions/planning";
 import { useAction } from "@/lib/use-action";
 import { addDays, daysBetween, formatDateDe } from "@/lib/dates";
+import { PreviewDialog } from "./preview-dialog";
 
 export function PlanControls({
   rangeStart,
@@ -25,6 +33,21 @@ export function PlanControls({
   const [start, setStart] = useState(rangeStart);
   const [end, setEnd] = useState(rangeEnd);
   const [issues, setIssues] = useState<string[]>([]);
+  const [preview, setPreview] = useState<{
+    days: PreviewDay[];
+    issues: string[];
+    mode: PlanMode;
+  } | null>(null);
+
+  function generate(mode: PlanMode) {
+    execute(() => generatePlanAction({ rangeStart: start, rangeEnd: end, mode }), {
+      onSuccess: (data) => {
+        setIssues(data?.issues ?? []);
+        setPreview(null);
+        router.refresh();
+      },
+    });
+  }
 
   /**
    * Der Zeitraum steckt in der Adresse, damit er beim Neuladen erhalten bleibt.
@@ -68,19 +91,23 @@ export function PlanControls({
         />
 
         <Button
-          disabled={pending}
+          variant="outline"
           className="w-full sm:w-auto"
+          disabled={pending}
           onClick={() =>
-            execute(() => generatePlanAction({ rangeStart: start, rangeEnd: end }), {
-              onSuccess: (data) => {
-                setIssues(data?.issues ?? []);
-                router.refresh();
-              },
+            execute(() => previewPlanAction({ rangeStart: start, rangeEnd: end, mode: "fill" }), {
+              onSuccess: (data) =>
+                setPreview({ days: data?.days ?? [], issues: data?.issues ?? [], mode: "fill" }),
             })
           }
         >
+          <Eye className="size-4" />
+          Vorschau
+        </Button>
+
+        <Button disabled={pending} className="w-full sm:w-auto" onClick={() => generate("fill")}>
           <Sparkles className="size-4" />
-          Plan erzeugen
+          Offene Tage planen
         </Button>
 
         <Button
@@ -88,7 +115,7 @@ export function PlanControls({
           className="w-full sm:w-auto"
           disabled={pending}
           onClick={() =>
-            execute(() => generateHorizonAction(), {
+            execute(() => generateHorizonAction({ mode: "fill" }), {
               onSuccess: (data) => {
                 setIssues(data?.issues ?? []);
                 router.refresh();
@@ -99,27 +126,56 @@ export function PlanControls({
           Nächste {planningWeeks} {planningWeeks === 1 ? "Arbeitswoche" : "Arbeitswochen"}
         </Button>
 
-        <ConfirmButton
-          variant="ghost"
-          size="default"
-          className="w-full sm:w-auto"
-          disabled={pending}
-          title="Zeitraum leeren?"
-          description={`Alle nicht gesperrten Einteilungen zwischen ${formatDateDe(start)} und ${formatDateDe(end)} werden gelöscht.`}
-          confirmLabel="Leeren"
-          onConfirm={() =>
-            execute(() => clearRange({ rangeStart: start, rangeEnd: end }), {
-              onSuccess: () => {
-                setIssues([]);
-                router.refresh();
-              },
-            })
-          }
-        >
-          <Eraser className="size-4" />
-          Zeitraum leeren
-        </ConfirmButton>
+        {/*
+          Die beiden Handgriffe, die Vergebenes anfassen, stehen abgesetzt am
+          Ende – sie ändern Termine, die jemand vielleicht schon kennt.
+        */}
+        <div className="sm:border-border/60 grid gap-2 sm:ml-auto sm:flex sm:border-l sm:pl-3">
+          <ConfirmButton
+            variant="ghost"
+            size="default"
+            className="w-full sm:w-auto"
+            disabled={pending}
+            title="Zeitraum neu verteilen?"
+            description={`Alle nicht gesperrten Einteilungen zwischen ${formatDateDe(start)} und ${formatDateDe(end)} werden verworfen und neu ausgelost. Bereits mitgeteilte Termine können sich dadurch ändern.`}
+            confirmLabel="Neu verteilen"
+            onConfirm={() => generate("redistribute")}
+          >
+            <Shuffle className="size-4" />
+            Neu verteilen
+          </ConfirmButton>
+
+          <ConfirmButton
+            variant="ghost"
+            size="default"
+            className="w-full sm:w-auto"
+            disabled={pending}
+            title="Zeitraum leeren?"
+            description={`Alle nicht gesperrten Einteilungen zwischen ${formatDateDe(start)} und ${formatDateDe(end)} werden gelöscht.`}
+            confirmLabel="Leeren"
+            onConfirm={() =>
+              execute(() => clearRange({ rangeStart: start, rangeEnd: end }), {
+                onSuccess: () => {
+                  setIssues([]);
+                  router.refresh();
+                },
+              })
+            }
+          >
+            <Eraser className="size-4" />
+            Zeitraum leeren
+          </ConfirmButton>
+        </div>
       </div>
+
+      <PreviewDialog
+        days={preview?.days ?? null}
+        issues={preview?.issues ?? []}
+        pending={pending}
+        applyLabel="So übernehmen"
+        onClose={() => setPreview(null)}
+        onApply={() => generate(preview?.mode ?? "fill")}
+      />
 
       {issues.length > 0 && (
         <Alert variant="destructive">

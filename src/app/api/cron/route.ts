@@ -47,10 +47,17 @@ async function handle(request: Request) {
         if (!planning.autoPlanEnabled) {
           return NextResponse.json({ job, skipped: "Automatischer Planlauf ist deaktiviert." });
         }
-        // Geplant wird ab der kommenden Woche – die laufende ist bereits
-        // verteilt und soll sich nicht unter den Leuten wegändern.
+        /*
+         * Geplant wird ab der kommenden Woche – die laufende ist bereits
+         * verteilt und soll sich nicht unter den Leuten wegändern.
+         *
+         * Nur ergänzen, nicht neu verteilen: Der Lauf greift jede Woche über
+         * dieselbe Spanne, die zweite Woche von heute ist beim nächsten Lauf
+         * die erste. Ohne diese Einschränkung würde ein bereits bekannt
+         * gegebener Termin ein zweites Mal ausgewürfelt.
+         */
         const { start, end } = nextWorkWeeks(general.planningWeeks);
-        const result = await applyPlan(start, end, null);
+        const result = await applyPlan(start, end, null, { overwriteExisting: false });
         return NextResponse.json({
           job,
           rangeStart: start,

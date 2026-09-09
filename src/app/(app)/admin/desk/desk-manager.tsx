@@ -6,13 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -22,10 +16,12 @@ import {
 } from "@/components/ui/select";
 import { ConfirmButton } from "@/components/app/confirm-button";
 import { DatePicker } from "@/components/app/date-picker";
+import { EndOrDeleteDialog } from "@/components/app/end-or-delete-dialog";
 import {
   createDeskShift,
   deleteDeskShift,
   deleteDeskStaff,
+  endDeskShift,
 } from "@/app/actions/desk";
 import { DeskStaffDialog } from "./desk-staff-dialog";
 import { useAction } from "@/lib/use-action";
@@ -39,15 +35,15 @@ export type StaffRow = {
   notes: string | null;
   /** Ob die Person bereits mit einem Konto verknüpft ist. */
   hasAccount: boolean;
-  shifts: {
-    id: string;
-    weekday: number;
-    validFrom: string;
-    validTo: string | null;
-  }[];
+  shifts: { id: string; weekday: number; validFrom: string; validTo: string | null }[];
 };
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
+
+/** Beendete Zuordnung – sie gilt nur noch für die Vergangenheit. */
+function isExpired(validTo: string | null): boolean {
+  return validTo !== null && validTo < today();
+}
 
 export function DeskManager({ staff }: { staff: StaffRow[] }) {
   const router = useRouter();
@@ -64,14 +60,11 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
             <DeskStaffDialog />
           </div>
           <CardDescription>
-            Wer sitzt regulär in der Zentrale und an welchen Wochentagen. Ist an
-            einem Tag niemand eingeteilt oder fällt die Person aus, plant die
-            Automatik ganztägige Vertretung. Über die hinterlegte E-Mail-Adresse
-            meldet sich die Person selbst an; Urlaub und Ausfälle stehen bei den{" "}
-            <Link
-              href="/admin/absences"
-              className="underline underline-offset-4"
-            >
+            Wer sitzt regulär in der Zentrale und an welchen Wochentagen. Ist an einem Tag niemand
+            eingeteilt oder fällt die Person aus, plant die Automatik ganztägige Vertretung. Über
+            die hinterlegte E-Mail-Adresse meldet sich die Person selbst an; Urlaub und Ausfälle
+            stehen bei den{" "}
+            <Link href="/admin/absences" className="underline underline-offset-4">
               Abwesenheiten
             </Link>
             .
@@ -117,9 +110,7 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
                       description="Die Zuordnung zu Wochentagen und die erfassten Ausfälle werden mitgelöscht."
                       confirmLabel="Entfernen"
                       onConfirm={() =>
-                        execute(() => deleteDeskStaff(person.id), {
-                          onSuccess: refresh,
-                        })
+                        execute(() => deleteDeskStaff(person.id), { onSuccess: refresh })
                       }
                     >
                       <Trash2 className="size-4" />
@@ -134,30 +125,34 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
                     </span>
                   ) : (
                     person.shifts.map((shift) => (
-                      <Badge
+                      <EndOrDeleteDialog
                         key={shift.id}
-                        variant="secondary"
-                        className="gap-1.5 py-1"
-                      >
-                        {weekdayLabel(shift.weekday)}
-                        <span className="text-muted-foreground text-[10px]">
-                          ab {formatDateDe(shift.validFrom)}
-                          {shift.validTo
-                            ? ` bis ${formatDateDe(shift.validTo)}`
-                            : ""}
-                        </span>
-                        <button
-                          className="hover:text-destructive"
-                          aria-label="Zuordnung entfernen"
-                          onClick={() =>
-                            execute(() => deleteDeskShift(shift.id), {
-                              onSuccess: refresh,
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      </Badge>
+                        trigger={
+                          <button aria-label={`${weekdayLabel(shift.weekday)} bearbeiten`}>
+                            <Badge
+                              variant={isExpired(shift.validTo) ? "outline" : "secondary"}
+                              className="hover:bg-accent cursor-pointer gap-1.5 py-1"
+                            >
+                              {weekdayLabel(shift.weekday)}
+                              <span className="text-muted-foreground text-[10px]">
+                                ab {formatDateDe(shift.validFrom)}
+                                {shift.validTo ? ` bis ${formatDateDe(shift.validTo)}` : ""}
+                              </span>
+                            </Badge>
+                          </button>
+                        }
+                        title={`${weekdayLabel(shift.weekday)} – ${person.name}`}
+                        description={`Zugeordnet ab ${formatDateDe(shift.validFrom)}. Läuft die Zuordnung aus, setze einen Stichtag: Die Pläne davor bleiben dann so, wie sie waren.`}
+                        minDate={shift.validFrom}
+                        deleteWarning="Die Zuordnung verschwindet vollständig. Vergangene Pläne sehen danach so aus, als wäre die Person an diesem Wochentag nie eingeteilt gewesen."
+                        pending={pending}
+                        onEnd={(validTo) =>
+                          execute(() => endDeskShift(shift.id, validTo), { onSuccess: refresh })
+                        }
+                        onDelete={() =>
+                          execute(() => deleteDeskShift(shift.id), { onSuccess: refresh })
+                        }
+                      />
                     ))
                   )}
                 </div>
@@ -177,13 +172,7 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
   );
 }
 
-function ShiftForm({
-  staffId,
-  onDone,
-}: {
-  staffId: string;
-  onDone: () => void;
-}) {
+function ShiftForm({ staffId, onDone }: { staffId: string; onDone: () => void }) {
   const { pending, execute } = useAction();
   const [weekday, setWeekday] = useState("1");
   const [validFrom, setValidFrom] = useState(today());
@@ -193,13 +182,9 @@ function ShiftForm({
       className="grid gap-2 sm:flex sm:flex-wrap sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
-        execute(
-          () =>
-            createDeskShift({ staffId, weekday: Number(weekday), validFrom }),
-          {
-            onSuccess: onDone,
-          },
-        );
+        execute(() => createDeskShift({ staffId, weekday: Number(weekday), validFrom }), {
+          onSuccess: onDone,
+        });
       }}
     >
       <Select value={weekday} onValueChange={setWeekday}>
@@ -214,12 +199,7 @@ function ShiftForm({
           ))}
         </SelectContent>
       </Select>
-      <DatePicker
-        label="Gültig ab"
-        className="sm:w-44"
-        value={validFrom}
-        onChange={setValidFrom}
-      />
+      <DatePicker label="Gültig ab" className="sm:w-44" value={validFrom} onChange={setValidFrom} />
       <Button
         type="submit"
         variant="outline"

@@ -215,7 +215,7 @@ Unter *Schedules* zwei Einträge anlegen, die im Container der Anwendung laufen:
 | Zeitplan | Befehl | Aufgabe |
 | --- | --- | --- |
 | `0 7 * * 1-5` | `npm run cron -- reminders` | Morgenerinnerungen versenden |
-| `30 5 * * 1` | `npm run cron -- plan` | die nächsten Arbeitswochen planen |
+| `30 5 * * 1` | `npm run cron -- plan` | offene Tage der nächsten Arbeitswochen planen |
 
 `scripts/cron.mjs` ruft damit den geschützten Endpunkt `POST /api/cron` auf –
 und zwar über `127.0.0.1` im Container, nicht über die öffentliche Adresse.
@@ -289,6 +289,20 @@ Tag, der nur eine Schule betrifft, wäre über die ganze Spalte gelegt eine
 Falschaussage. Sichtbar wird er daran, dass der Schultag der betroffenen
 Person entfällt.
 
+## Beenden statt löschen
+
+Zuordnungen, die auslaufen, bekommen einen Stichtag – sie werden nicht
+gelöscht. Das betrifft die Wochentage der Zentrale-Festbesetzung und die
+Berufsschultage der Auszubildenden: Ein Klick auf die Markierung öffnet
+*Gilt letztmalig am*.
+
+Der Unterschied ist nicht kosmetisch. Wer im November den Freitag abgibt, war
+bis dahin ja freitags da. Ein Löschen entfernt die Zuordnung rückwirkend: Die
+vergangenen Pläne verlieren ihre Begründung, der Jahresüberblick rechnet die
+Urlaubstage neu, und der Zentrale-Kalender erzählt eine andere Vergangenheit
+als die stattgefundene. Löschen bleibt möglich – für Einträge, die von Anfang
+an falsch waren –, steht aber abgesetzt und braucht einen zweiten Klick.
+
 ## Feiertage anpassen
 
 Unter *Verwaltung → Kalender* lässt sich jedes Jahr aufrufen und einzeln
@@ -317,6 +331,12 @@ planen darf, darf planen – ob er dabei benachrichtigt werden möchte, ist eine
 andere Frage und ändert sich auch mal, ohne dass jemand Rechte bekommt oder
 verliert.
 
+Der Versand darf nie einen Eintrag verhindern – eine Krankmeldung wird auch
+dann gespeichert, wenn die Nachricht dazu nicht rausgeht. Damit das niemandem
+entgeht, meldet die Startseite fehlgeschlagene Zustellungen der letzten 24
+Stunden und weist darauf hin, wenn SMTP gar nicht eingerichtet ist. Das
+vollständige Protokoll steht unter *Verwaltung → Benachrichtigungen*.
+
 ## Ein Konto für mehrere Personen
 
 An der Zentrale teilen sich mehrere Personen ein Sammelkonto. Dafür lassen sich
@@ -340,8 +360,24 @@ Die Zahl der Wochen für den automatischen Lauf steht unter
 Wert steckt hinter der Schaltfläche *Nächste N Arbeitswochen*. Auf der
 Startseite weist ein Hinweis darauf hin, wenn der Plan nicht so weit reicht.
 
-Der Zeitraum in *Plan erstellen* lässt sich jederzeit von Hand weiter fassen –
-gesperrte Einteilungen bleiben bei jedem Lauf unverändert.
+Der Zeitraum in *Plan erstellen* lässt sich jederzeit von Hand weiter fassen.
+
+### Ergänzen oder neu verteilen
+
+Alle regulären Läufe – *Offene Tage planen*, *Nächste N Arbeitswochen* und der
+Dokploy-Schedule – **ergänzen nur**, was noch offen ist. Wer seinen Termin
+schon kennt, behält ihn. Das ist wichtig, weil der automatische Lauf jede
+Woche über dieselbe Spanne greift: Die zweite Woche von heute ist beim
+nächsten Lauf die erste, und ohne diese Einschränkung würde ein bereits
+mitgeteilter Termin ein zweites Mal ausgewürfelt.
+
+*Neu verteilen* wirft alles Ungesperrte weg und lost neu aus. Das ändert
+Termine, die vielleicht schon jemand im Kalender stehen hat, und ist deshalb
+eine bewusste Handlung mit Rückfrage. Gesperrte Einteilungen bleiben in beiden
+Fällen unverändert.
+
+*Vorschau* rechnet einen Lauf durch, ohne ihn zu schreiben, und zeigt dabei,
+welche Einteilungen hinzukämen und welche unverändert blieben.
 
 ## So funktioniert die Verteilung
 

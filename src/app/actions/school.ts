@@ -13,7 +13,7 @@ import {
   run,
   writeAudit,
 } from "@/lib/action-utils";
-import { weekdayLabel } from "@/lib/dates";
+import { formatDateDe, weekdayLabel } from "@/lib/dates";
 
 const schoolTermSchema = z
   .object({
@@ -78,15 +78,19 @@ export async function deleteSchoolTerm(id: string) {
 }
 
 /** Beendet einen Schultag zum Stichtag, statt ihn zu löschen (Historie bleibt). */
-export async function endSchoolTerm(id: string, validTo: string) {
+export async function endSchoolTerm(id: string, validTo: unknown) {
   return run(async () => {
+    const date = isoDateSchema.parse(validTo);
     const entry = await db.query.schoolTerms.findFirst({ where: eq(schoolTerms.id, id) });
     if (!entry) return fail("Eintrag nicht gefunden.");
     const user = await assertCanEditApprentice(entry.apprenticeId);
+    if (date < entry.validFrom) {
+      return fail(`Der Stichtag liegt vor dem Beginn (${formatDateDe(entry.validFrom)}).`);
+    }
 
-    await db.update(schoolTerms).set({ validTo }).where(eq(schoolTerms.id, id));
-    await writeAudit(user, "school.end", "school_term", id, { validTo });
+    await db.update(schoolTerms).set({ validTo: date }).where(eq(schoolTerms.id, id));
+    await writeAudit(user, "school.end", "school_term", id, { validTo: date });
     paths();
-    return ok("Zeitraum begrenzt.");
+    return ok(`${weekdayLabel(entry.weekday)} läuft bis ${formatDateDe(date)}.`);
   });
 }

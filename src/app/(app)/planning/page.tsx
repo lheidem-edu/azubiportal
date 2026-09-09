@@ -42,7 +42,7 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
     <>
       <PageHeader
         title="Plan erstellen"
-        description="Die Automatik verteilt die Einsätze gleichmäßig und überspringt Schultage, Urlaub, Feiertage und Betriebsferien."
+        description="Die Automatik verteilt die Einsätze gleichmäßig und überspringt Schultage, Urlaub, Feiertage und Betriebsferien. Ergänzt wird nur, was noch offen ist – bereits vergebene Tage bleiben, wie sie sind."
       />
 
       {/* Steuerung ohne eigene Karte: eine Handlungsleiste, kein Abschnitt. */}
@@ -69,7 +69,7 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
           Plan {formatDateDe(rangeStart)} – {formatDateDe(rangeEnd)}
         </h2>
         <p className="text-muted-foreground text-xs">
-          Stift öffnet den Tag zum Ändern · Gesperrtes bleibt bei jedem Lauf erhalten
+          Stift öffnet den Tag zum Ändern · Vergebenes bleibt, bis jemand neu verteilt
         </p>
       </div>
       <PlanBoard days={board} today={today()} editable />
