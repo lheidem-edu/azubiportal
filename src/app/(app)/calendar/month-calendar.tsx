@@ -6,13 +6,7 @@ import { CalendarOff, GraduationCap, Sun, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  formatDateLongDe,
-  startOfIsoWeek,
-  weekdayLabel,
-  weekdayShort,
-  type IsoDate,
-} from "@/lib/dates";
+import { formatDateLongDe, startOfIsoWeek, weekdayShort, type IsoDate } from "@/lib/dates";
 import {
   MARK_LABEL,
   type MarkKind,
@@ -30,45 +24,70 @@ const MARK_COLOR: Record<MarkKind, string> = {
   OTHER: "bg-amber-500",
 };
 
-const WEEKDAY_HEADERS = [1, 2, 3, 4, 5, 6, 7];
+/** Spaltenbreite je Tag. Schmal genug, dass ein ganzer Monat aufs Bild passt. */
+const COLUMN = 26;
 
 /**
- * Monatskalender der Abwesenheiten.
+ * Monatsübersicht als Balkenplan.
  *
- * Auf dem Bildschirm ein Gitter wie im Wandkalender, auf dem Telefon
- * dieselben Tage untereinander – dort wären sieben Spalten unlesbar.
- * Jeder Tag nennt die betroffenen Personen namentlich; ein Tippen öffnet
- * die Einzelheiten mit Grund und angerechneten Tagen.
+ * Abwesenheiten sind Zeiträume, keine Einzeltage – als durchgehender Balken
+ * über die betroffenen Tage sieht man auf einen Blick, wie lange jemand weg
+ * ist und wo sich Abwesenheiten überschneiden. Eine Zeile je Person, eine
+ * Spalte je Tag; die Namensspalte bleibt beim seitlichen Scrollen stehen.
  */
 export function MonthCalendar({ view, today }: { view: MonthView; today?: IsoDate }) {
   const [selected, setSelected] = useState<IsoDate | null>(null);
   const day = view.days.find((entry) => entry.date === selected);
+  const columns = `repeat(${view.days.length}, ${COLUMN}px)`;
+
+  const toggle = (date: IsoDate) =>
+    setSelected((current) => (current === date ? null : date));
 
   return (
     <div className="space-y-4">
-      {/* Wochentagsleiste, nur im Gitter sinnvoll */}
-      <div className="hidden grid-cols-7 gap-2 sm:grid">
-        {WEEKDAY_HEADERS.map((weekday) => (
-          <div key={weekday} className="text-muted-foreground text-center text-xs font-medium">
-            {weekdayShort(weekday)}
+      <div className="overflow-x-auto pb-1">
+        <div className="min-w-max">
+          {/* Tagesleiste */}
+          <div className="flex">
+            <div className="bg-card sticky left-0 z-20 w-28 shrink-0 sm:w-40" />
+            <div className="grid" style={{ gridTemplateColumns: columns }}>
+              {view.days.map((entry) => (
+                <button
+                  key={entry.date}
+                  type="button"
+                  onClick={() => toggle(entry.date)}
+                  title={formatDateLongDe(entry.date)}
+                  className={cn(
+                    "flex flex-col items-center rounded-t py-0.5 text-[10px] leading-tight",
+                    entry.isWeekend || entry.holiday || entry.closure
+                      ? "text-muted-foreground/60"
+                      : "text-muted-foreground",
+                    entry.date === today && "text-primary font-semibold",
+                    selected === entry.date && "bg-accent text-accent-foreground",
+                  )}
+                >
+                  <span>{Number(entry.date.slice(8, 10))}</span>
+                  <span className="opacity-70">{weekdayShort(entry.weekday).slice(0, 2)}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
-        {Array.from({ length: view.leadingBlanks }).map((_, index) => (
-          <div key={`blank-${index}`} className="hidden sm:block" />
-        ))}
-
-        {view.days.map((entry) => (
-          <DayCell
-            key={entry.date}
-            day={entry}
-            isToday={entry.date === today}
-            isSelected={selected === entry.date}
-            onSelect={() => setSelected((current) => (current === entry.date ? null : entry.date))}
-          />
-        ))}
+          {/* Eine Zeile je Person */}
+          <div className="mt-1 space-y-1">
+            {view.people.map((person) => (
+              <PersonRow
+                key={`${person.kind}:${person.id}`}
+                person={person}
+                days={view.days}
+                columns={columns}
+                today={today}
+                selected={selected}
+                onSelect={toggle}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <Legend />
@@ -78,73 +97,122 @@ export function MonthCalendar({ view, today }: { view: MonthView; today?: IsoDat
   );
 }
 
-function DayCell({
-  day,
-  isToday,
-  isSelected,
+type Span = {
+  kind: MarkKind;
+  label: string;
+  /** Erste Spalte, 1-basiert wie im Raster. */
+  start: number;
+  length: number;
+  partial: boolean;
+  counts: boolean;
+  recurring: boolean;
+};
+
+/**
+ * Fasst aufeinanderfolgende Tage gleicher Art zu einem Balken zusammen.
+ * Wochenenden innerhalb eines Urlaubs unterbrechen ihn bewusst nicht – der
+ * Zeitraum ist ja durchgehend.
+ */
+function spansOf(person: PersonYear, days: MonthDay[]): Span[] {
+  const spans: Span[] = [];
+  let current: Span | null = null;
+
+  days.forEach((day, index) => {
+    const mark = person.marks[day.date];
+    const key = mark && `${mark.kind}|${mark.label}|${mark.partial}|${mark.recurring}`;
+
+    if (!mark) {
+      current = null;
+      return;
+    }
+    if (current && current.length + current.start - 1 === index && key === currentKey(current)) {
+      current.length += 1;
+      return;
+    }
+    current = {
+      kind: mark.kind,
+      label: mark.label,
+      start: index + 1,
+      length: 1,
+      partial: mark.partial,
+      counts: mark.counts,
+      recurring: mark.recurring,
+    };
+    spans.push(current);
+  });
+
+  return spans;
+}
+
+function currentKey(span: Span): string {
+  return `${span.kind}|${span.label}|${span.partial}|${span.recurring}`;
+}
+
+function PersonRow({
+  person,
+  days,
+  columns,
+  today,
+  selected,
   onSelect,
 }: {
-  day: MonthDay;
-  isToday?: boolean;
-  isSelected?: boolean;
-  onSelect: () => void;
+  person: PersonYear;
+  days: MonthDay[];
+  columns: string;
+  today?: IsoDate;
+  selected: IsoDate | null;
+  onSelect: (date: IsoDate) => void;
 }) {
-  const closed = day.isWeekend || Boolean(day.holiday) || Boolean(day.closure);
-  const note = day.holiday ?? day.closure;
+  const spans = spansOf(person, days);
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "bg-card flex min-h-24 flex-col gap-1 rounded-lg border p-2 text-left transition-colors",
-        // Auf dem Telefon stehen Wochenenden ohne Einträge nur im Weg
-        day.isWeekend && day.entries.length === 0 && "hidden sm:flex",
-        closed && "bg-muted/50",
-        isToday && "ring-primary/60 ring-2",
-        isSelected && "ring-foreground ring-2",
-        "hover:border-foreground/30",
-      )}
-    >
-      <div className="flex items-baseline justify-between gap-1">
-        <span className={cn("text-sm font-medium", closed && "text-muted-foreground")}>
-          {Number(day.date.slice(8, 10))}.
-          <span className="text-muted-foreground ml-1 text-xs sm:hidden">
-            {weekdayLabel(day.weekday)}
-          </span>
-        </span>
-        {day.schoolHoliday && (
-          <GraduationCap
-            className="text-muted-foreground size-3.5 shrink-0"
-            aria-label={day.schoolHoliday}
-          />
+    <div className="flex items-center">
+      <div className="bg-card sticky left-0 z-20 flex h-6 w-28 shrink-0 items-center gap-1 border-r pr-2 text-xs sm:w-40">
+        <span className="truncate">{person.name}</span>
+        {person.kind === "DESK" && (
+          <span className="text-muted-foreground shrink-0 text-[10px]">Z</span>
         )}
       </div>
 
-      {note && <div className="text-muted-foreground truncate text-[11px]">{note}</div>}
-
-      <ul className="space-y-0.5">
-        {day.entries.map(({ person, mark }) => (
-          <li
-            key={`${person.kind}:${person.id}`}
+      <div className="relative grid h-6" style={{ gridTemplateColumns: columns }}>
+        {/* Hintergrund: freie Tage und der heutige Tag */}
+        {days.map((day) => (
+          <button
+            key={day.date}
+            type="button"
+            aria-label={formatDateLongDe(day.date)}
+            onClick={() => onSelect(day.date)}
+            style={{ gridRow: 1 }}
             className={cn(
-              "flex items-center gap-1 text-[11px]",
-              mark.recurring && "text-muted-foreground",
-              !mark.counts && !mark.recurring && "text-muted-foreground",
+              "border-border/40 h-6 border-r last:border-r-0",
+              day.isWeekend || day.holiday || day.closure ? "bg-muted" : "bg-muted/25",
+              day.date === today && "bg-primary/10",
+              selected === day.date && "ring-primary/50 ring-1 ring-inset",
+            )}
+          />
+        ))}
+
+        {/* Balken über den Hintergrund legen */}
+        {spans.map((span) => (
+          <div
+            key={`${span.kind}-${span.start}`}
+            style={{ gridRow: 1, gridColumn: `${span.start} / span ${span.length}` }}
+            title={`${person.name}: ${span.label}`}
+            className={cn(
+              "pointer-events-none z-10 my-0.5 flex items-center overflow-hidden rounded px-1",
+              MARK_COLOR[span.kind],
+              span.recurring && "opacity-35",
+              span.partial && "opacity-60",
+              !span.counts && !span.recurring && "opacity-55",
             )}
           >
-            <span
-              className={cn(
-                "inline-block size-1.5 shrink-0 rounded-full",
-                MARK_COLOR[mark.kind],
-                (mark.recurring || !mark.counts) && "opacity-50",
-              )}
-            />
-            <span className="truncate">{person.shortName}</span>
-          </li>
+            {span.length >= 3 && (
+              <span className="truncate text-[10px] font-medium text-white">{span.label}</span>
+            )}
+          </div>
         ))}
-      </ul>
-    </button>
+      </div>
+    </div>
   );
 }
 
@@ -183,8 +251,13 @@ function DayDetails({ day, onClose }: { day: MonthDay; onClose: () => void }) {
       ) : (
         <ul className="space-y-1">
           {day.entries.map(({ person, mark }) => (
-            <li key={`${person.kind}:${person.id}`} className="flex flex-wrap items-center gap-2 text-sm">
-              <span className={cn("inline-block size-2.5 shrink-0 rounded-sm", MARK_COLOR[mark.kind])} />
+            <li
+              key={`${person.kind}:${person.id}`}
+              className="flex flex-wrap items-center gap-2 text-sm"
+            >
+              <span
+                className={cn("inline-block size-2.5 shrink-0 rounded-sm", MARK_COLOR[mark.kind])}
+              />
               <span className="font-medium">{person.name}</span>
               <span className="text-muted-foreground">{mark.label}</span>
               {reasonFor(person, day.date) && (
@@ -225,11 +298,11 @@ function Legend() {
         </span>
       ))}
       <span className="flex items-center gap-1.5">
-        <GraduationCap className="size-3" />
-        Schulferien
+        <span className="bg-sky-400 inline-block size-2.5 rounded-sm opacity-35" />
+        wöchentlicher Schultag
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="bg-emerald-500 inline-block size-2.5 rounded-sm opacity-50" />
+        <span className="bg-emerald-500 inline-block size-2.5 rounded-sm opacity-55" />
         zählt nicht aufs Konto
       </span>
     </div>

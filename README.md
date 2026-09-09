@@ -44,6 +44,9 @@ wäre.
   sehen alle Angemeldeten; bearbeiten darf jede:r nur die eigenen Daten.
 - **Urlaubstage zählen nach Anwesenheit** – bei der festen Zentrale-Besetzung
   zählen nur die Wochentage, an denen sie tatsächlich in der Zentrale wäre.
+- **Monatsübersicht als Balkenplan** – eine Zeile je Person, eine Spalte je
+  Tag. Abwesenheiten stehen als durchgehender Balken über ihren Zeitraum, so
+  sieht man Überschneidungen auf einen Blick.
 - **Krankmeldung wirkt sofort** – wer ausfällt, verliert seine Einteilungen,
   der 1. Ersatz rückt nach und wird per E-Mail informiert. In dessen Kalender
   wird aus dem unverbindlichen Ersatztermin ein fester Termin. Wird die
