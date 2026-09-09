@@ -16,7 +16,7 @@ import {
 import { requireUser } from "@/lib/session";
 import { today } from "@/lib/dates";
 import { getYearOverview, sortPeople } from "@/lib/year-overview";
-import { buildMonthView, monthTotals, MONTH_NAMES } from "@/lib/year-marks";
+import { buildMonthView, MONTH_NAMES } from "@/lib/year-marks";
 import { MonthCalendar } from "./month-calendar";
 
 export const metadata = { title: "Monatsübersicht" };
@@ -98,7 +98,7 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Summen</CardTitle>
+          <CardTitle className="text-base">Summen {year}</CardTitle>
           <CardDescription>
             Gezählt werden nur Tage, an denen die Person tatsächlich da wäre – bei der
             Zentrale-Besetzung also nur ihre eigenen Wochentage. Halbe Tage zählen halb.
@@ -110,45 +110,34 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Person</TableHead>
-                  <TableHead>Urlaub im Monat</TableHead>
-                  <TableHead>Krank im Monat</TableHead>
                   <TableHead>Urlaub {year}</TableHead>
                   <TableHead>Krank {year}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {view.people.map((person) => {
-                  const totals = monthTotals(person, view.days);
-                  return (
-                    <TableRow key={`${person.kind}:${person.id}`}>
-                      <TableCell>
-                        <span className="font-medium">{person.name}</span>
-                        {person.kind === "DESK" && (
-                          <Badge variant="secondary" className="ml-2 h-5">
-                            Zentrale
-                          </Badge>
-                        )}
-                        {person.id === ownId && (
-                          <Badge variant="outline" className="ml-2 h-5">
-                            du
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {totals.vacation.toLocaleString("de-DE")}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {totals.sick.toLocaleString("de-DE")}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {person.vacationDays.toLocaleString("de-DE")}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground tabular-nums">
-                        {person.sickDays.toLocaleString("de-DE")}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {view.people.map((person) => (
+                  <TableRow key={`${person.kind}:${person.id}`}>
+                    <TableCell>
+                      <span className="font-medium">{person.name}</span>
+                      {person.kind === "DESK" && (
+                        <Badge variant="secondary" className="ml-2 h-5">
+                          Zentrale
+                        </Badge>
+                      )}
+                      {person.id === ownId && (
+                        <Badge variant="outline" className="ml-2 h-5">
+                          du
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {person.vacationDays.toLocaleString("de-DE")}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {person.sickDays.toLocaleString("de-DE")}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableScroll>

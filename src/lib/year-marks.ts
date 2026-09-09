@@ -151,16 +151,3 @@ export function buildMonthView(overview: YearOverview, month: number): MonthView
   };
 }
 
-/** Summen einer Person innerhalb eines Monats. */
-export function monthTotals(person: PersonYear, days: MonthDay[]) {
-  let vacation = 0;
-  let sick = 0;
-  for (const day of days) {
-    const mark = person.marks[day.date];
-    if (!mark || !mark.counts) continue;
-    const value = mark.partial ? 0.5 : 1;
-    if (mark.kind === "VACATION") vacation += value;
-    if (mark.kind === "SICK") sick += value;
-  }
-  return { vacation, sick };
-}
