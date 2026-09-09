@@ -116,22 +116,6 @@ AUTH_MICROSOFT_ENTRA_ID_SECRET=<Wert des Client-Geheimnisses>
 AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Verzeichnis-ID (Mandant)>
 ```
 
-### Wer sich anmelden darf
-
-Beim ersten erfolgreichen Login legt die Anwendung automatisch ein
-Benutzerkonto an. Damit dabei nichts Fremdes hereinkommt, lässt sich der
-Zugang auf E-Mail-Domänen einschränken:
-
-```env
-ALLOWED_EMAIL_DOMAINS=be-bauelemente.com
-```
-
-Mehrere Domänen werden mit Komma getrennt; Unterdomänen sind eingeschlossen.
-Bleibt die Variable leer, entscheidet allein die Anmeldung bei Microsoft – das
-genügt, solange die App-Registrierung an einen einzelnen Mandanten gebunden
-ist. Bei einer mandantenübergreifenden Registrierung gehört hier die eigene
-Domäne hinein.
-
 Beim Aussteller werden alle gebräuchlichen Schreibweisen angenommen: die bloße
 Mandanten-ID, die vollständige Adresse
 `https://login.microsoftonline.com/<MANDANTEN-ID>/v2.0` – mit oder ohne
@@ -200,7 +184,6 @@ APP_BASE_URL=https://azubiportal.firma.de
 AUTH_MICROSOFT_ENTRA_ID_ID=<Anwendungs-ID>
 AUTH_MICROSOFT_ENTRA_ID_SECRET=<Geheimnis>
 AUTH_MICROSOFT_ENTRA_ID_ISSUER=<Mandanten-ID>
-ALLOWED_EMAIL_DOMAINS=firma.de
 ```
 
 Unter *Domains* die Domain auf Port **3000** routen und HTTPS aktivieren.
@@ -208,9 +191,7 @@ Unter *Domains* die Domain auf Port **3000** routen und HTTPS aktivieren.
 Anmeldung und Kalenderfeed ins Leere.
 
 Beim Start wendet die Anwendung die Migrationen selbst an – ein Deployment
-braucht keinen zusätzlichen Handgriff. Mit `RUN_MIGRATIONS=false` lässt sich
-das abschalten, etwa um Änderungen an der Datenbank aus einem Wartungsfenster
-heraus zu fahren.
+braucht keinen zusätzlichen Handgriff.
 
 ### 3. Zeitgesteuerte Aufgaben
 
