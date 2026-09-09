@@ -4,13 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eraser, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ConfirmButton } from "@/components/app/confirm-button";
+import { DatePicker } from "@/components/app/date-picker";
 import { clearRange, generateHorizonAction, generatePlanAction } from "@/app/actions/planning";
 import { useAction } from "@/lib/use-action";
-import { formatDateDe } from "@/lib/dates";
+import { addDays, daysBetween, formatDateDe } from "@/lib/dates";
 
 export function PlanControls({
   rangeStart,
@@ -27,36 +26,46 @@ export function PlanControls({
   const [end, setEnd] = useState(rangeEnd);
   const [issues, setIssues] = useState<string[]>([]);
 
-  function applyRange() {
-    router.push(`/planning?from=${start}&to=${end}`);
+  /**
+   * Der Zeitraum steckt in der Adresse, damit er beim Neuladen erhalten bleibt.
+   * Die Werte werden übergeben, weil der Zustand im selben Durchlauf noch den
+   * alten Stand hätte.
+   */
+  function applyRange(from: string, to: string) {
+    router.push(`/planning?from=${from}&to=${to}`);
   }
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-end">
-        <div className="space-y-1.5">
-          <Label htmlFor="von">Von</Label>
-          <Input
-            id="von"
-            type="date"
-            className="w-full sm:w-40"
-            value={start}
-            onChange={(event) => setStart(event.target.value)}
-            onBlur={applyRange}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="bis">Bis</Label>
-          <Input
-            id="bis"
-            type="date"
-            className="w-full sm:w-40"
-            min={start}
-            value={end}
-            onChange={(event) => setEnd(event.target.value)}
-            onBlur={applyRange}
-          />
-        </div>
+        <DatePicker
+          id="von"
+          label="Von"
+          className="sm:w-44"
+          value={start}
+          onChange={(value) => {
+            /*
+             * Rutscht der Beginn hinter das Ende, wandert das Ende mit und die
+             * Länge des Zeitraums bleibt erhalten – wer eine Woche plant, will
+             * beim Vorblättern wieder eine Woche, keinen einzelnen Tag.
+             */
+            const nextEnd = value > end ? addDays(value, daysBetween(start, end)) : end;
+            setStart(value);
+            setEnd(nextEnd);
+            applyRange(value, nextEnd);
+          }}
+        />
+        <DatePicker
+          id="bis"
+          label="Bis"
+          className="sm:w-44"
+          min={start}
+          value={end}
+          onChange={(value) => {
+            setEnd(value);
+            applyRange(start, value);
+          }}
+        />
 
         <Button
           disabled={pending}

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/app/date-picker";
 import {
   Select,
   SelectContent,
@@ -178,33 +178,25 @@ export function AbsenceForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="startDate">Von</Label>
-          <Input
-            id="startDate"
-            type="date"
-            required
-            value={startDate}
-            onChange={(event) => {
-              setStartDate(event.target.value);
-              if (event.target.value > endDate || dayPart !== "FULL") {
-                setEndDate(event.target.value);
-              }
-            }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="endDate">Bis</Label>
-          <Input
-            id="endDate"
-            type="date"
-            required
-            min={startDate}
-            disabled={dayPart !== "FULL"}
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </div>
+        <DatePicker
+          id="startDate"
+          label="Von"
+          required
+          value={startDate}
+          onChange={(value) => {
+            setStartDate(value);
+            if (value > endDate || dayPart !== "FULL") setEndDate(value);
+          }}
+        />
+        <DatePicker
+          id="endDate"
+          label="Bis"
+          required
+          min={startDate}
+          disabled={dayPart !== "FULL"}
+          value={endDate}
+          onChange={setEndDate}
+        />
       </div>
 
       <div className="space-y-1.5">

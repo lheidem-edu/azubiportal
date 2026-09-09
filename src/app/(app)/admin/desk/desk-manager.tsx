@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmButton } from "@/components/app/confirm-button";
+import { DatePicker } from "@/components/app/date-picker";
 import {
   createDeskShift,
   createDeskStaff,
@@ -208,11 +209,11 @@ function ShiftForm({ staffId, onDone }: { staffId: string; onDone: () => void })
           ))}
         </SelectContent>
       </Select>
-      <Input
-        type="date"
-        className="w-full sm:w-40"
+      <DatePicker
+        label="Gültig ab"
+        className="sm:w-44"
         value={validFrom}
-        onChange={(event) => setValidFrom(event.target.value)}
+        onChange={setValidFrom}
       />
       <Button type="submit" variant="outline" size="sm" disabled={pending} className="w-full sm:w-auto">
         <Plus className="size-3.5" />

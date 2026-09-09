@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoWeekday, nextWorkWeeks, startOfIsoWeek, startOfNextWeek } from "./dates";
+import { addDays, daysBetween, isoWeekday, nextWorkWeeks, startOfIsoWeek, startOfNextWeek } from "./dates";
 
 describe("Planungszeiträume", () => {
   it("beginnt am Montag der kommenden Woche", () => {
@@ -32,5 +32,29 @@ describe("Planungszeiträume", () => {
 
   it("rechnet mit mindestens einer Woche", () => {
     expect(nextWorkWeeks(0, "2026-08-26").end).toBe("2026-09-04");
+  });
+});
+
+describe("Tagesabstand", () => {
+  it("zählt die Tage zwischen zwei Daten", () => {
+    expect(daysBetween("2026-09-14", "2026-09-18")).toBe(4);
+    expect(daysBetween("2026-09-14", "2026-09-14")).toBe(0);
+  });
+
+  it("zählt rückwärts negativ", () => {
+    expect(daysBetween("2026-09-18", "2026-09-14")).toBe(-4);
+  });
+
+  it("kommt mit der Zeitumstellung zurecht", () => {
+    // Ende der Sommerzeit 2026: Nacht auf den 25.10.
+    expect(daysBetween("2026-10-24", "2026-10-26")).toBe(2);
+    // Beginn der Sommerzeit 2026: Nacht auf den 29.03.
+    expect(daysBetween("2026-03-28", "2026-03-30")).toBe(2);
+  });
+
+  it("behält die Länge eines Zeitraums beim Verschieben", () => {
+    // So verschiebt die Planung das Ende, wenn der Beginn nach hinten rutscht.
+    const laenge = daysBetween("2026-09-14", "2026-09-18");
+    expect(addDays("2026-09-21", laenge)).toBe("2026-09-25");
   });
 });

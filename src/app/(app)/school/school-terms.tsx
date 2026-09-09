@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmButton } from "@/components/app/confirm-button";
+import { DatePicker } from "@/components/app/date-picker";
 import { createSchoolTerm, deleteSchoolTerm } from "@/app/actions/school";
 import { useAction } from "@/lib/use-action";
 import { formatDateDe, today, weekdayLabel } from "@/lib/dates";
@@ -115,38 +115,30 @@ export function SchoolTermForm({
       </div>
 
       {Number(intervalWeeks) > 1 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="anchorWeek">Erster Schultag in diesem Rhythmus</Label>
-          <Input
-            id="anchorWeek"
-            type="date"
-            value={anchorWeek}
-            onChange={(event) => setAnchorWeek(event.target.value)}
-          />
-        </div>
+        <DatePicker
+          id="anchorWeek"
+          label="Erster Schultag in diesem Rhythmus"
+          value={anchorWeek}
+          onChange={setAnchorWeek}
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="validFrom">Gültig ab</Label>
-          <Input
-            id="validFrom"
-            type="date"
-            required
-            value={validFrom}
-            onChange={(event) => setValidFrom(event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="validTo">Gültig bis (optional)</Label>
-          <Input
-            id="validTo"
-            type="date"
-            min={validFrom}
-            value={validTo}
-            onChange={(event) => setValidTo(event.target.value)}
-          />
-        </div>
+        <DatePicker
+          id="validFrom"
+          label="Gültig ab"
+          required
+          value={validFrom}
+          onChange={setValidFrom}
+        />
+        <DatePicker
+          id="validTo"
+          label="Gültig bis (optional)"
+          min={validFrom}
+          value={validTo}
+          onChange={setValidTo}
+          placeholder="offen"
+        />
       </div>
 
       <Button type="submit" disabled={pending || !target} className="w-full sm:w-auto">

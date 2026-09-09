@@ -40,6 +40,13 @@ export function addDays(iso: IsoDate, days: number): IsoDate {
   return toIsoDate(d);
 }
 
+/** Anzahl Tage von `from` bis `to`; negativ, wenn `to` davor liegt. */
+export function daysBetween(from: IsoDate, to: IsoDate): number {
+  const a = Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10));
+  const b = Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10));
+  return Math.round((b - a) / 86400000);
+}
+
 export function today(): IsoDate {
   return toIsoDate(new Date());
 }

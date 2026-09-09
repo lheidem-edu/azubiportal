@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/app/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -144,26 +145,21 @@ export function ApprenticeDialog({ initial }: { initial?: ApprenticeFormValues }
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="startDate">Ausbildungsbeginn</Label>
-              <Input
-                id="startDate"
-                type="date"
-                required
-                value={values.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="endDate">Ausbildungsende (optional)</Label>
-              <Input
-                id="endDate"
-                type="date"
-                min={values.startDate}
-                value={values.endDate}
-                onChange={(e) => set("endDate", e.target.value)}
-              />
-            </div>
+            <DatePicker
+              id="startDate"
+              label="Ausbildungsbeginn"
+              required
+              value={values.startDate}
+              onChange={(value) => set("startDate", value)}
+            />
+            <DatePicker
+              id="endDate"
+              label="Ausbildungsende (optional)"
+              min={values.startDate}
+              value={values.endDate}
+              onChange={(value) => set("endDate", value)}
+              placeholder="offen"
+            />
           </div>
 
           <div className="space-y-1.5">

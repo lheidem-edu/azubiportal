@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { TableScroll } from "@/components/app/table-scroll";
 import { ConfirmButton } from "@/components/app/confirm-button";
+import { DatePicker } from "@/components/app/date-picker";
 import {
   createClosure,
   createHoliday,
@@ -243,11 +244,11 @@ function ManualHolidayForm({ year, onDone }: { year: number; onDone: () => void 
         });
       }}
     >
-      <Input
-        type="date"
-        className="w-full sm:w-40"
+      <DatePicker
+        label="Datum"
+        className="sm:w-44"
         value={date}
-        onChange={(event) => setDate(event.target.value)}
+        onChange={setDate}
       />
       <Input
         className="w-full sm:w-48"
@@ -294,30 +295,24 @@ function ClosureForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="closureFrom">Von</Label>
-        <Input
-          id="closureFrom"
-          type="date"
-          className="w-full sm:w-40"
-          value={startDate}
-          onChange={(event) => {
-            setStartDate(event.target.value);
-            if (event.target.value > endDate) setEndDate(event.target.value);
-          }}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="closureTo">Bis</Label>
-        <Input
-          id="closureTo"
-          type="date"
-          className="w-full sm:w-40"
-          min={startDate}
-          value={endDate}
-          onChange={(event) => setEndDate(event.target.value)}
-        />
-      </div>
+      <DatePicker
+        id="closureFrom"
+        label="Von"
+        className="sm:w-44"
+        value={startDate}
+        onChange={(value) => {
+          setStartDate(value);
+          if (value > endDate) setEndDate(value);
+        }}
+      />
+      <DatePicker
+        id="closureTo"
+        label="Bis"
+        className="sm:w-44"
+        min={startDate}
+        value={endDate}
+        onChange={setEndDate}
+      />
       <Button type="submit" disabled={pending} className="w-full sm:w-auto">
         Hinzufügen
       </Button>
