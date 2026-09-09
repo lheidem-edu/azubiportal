@@ -76,10 +76,21 @@ function MonthRow({
   today?: IsoDate;
 }) {
   const spans = buildSpans(days, person);
+  /*
+   * Der laufende Monat wird an seiner Beschriftung kenntlich gemacht, nicht im
+   * Raster. Eine Markierung an der Zelle sieht dort aus wie ein leerer Balken
+   * und stört das Diagramm.
+   */
+  const isCurrentMonth = today !== undefined && days.some((day) => day.date === today);
 
   return (
     <div className="flex items-center">
-      <div className="bg-card border-border/40 sticky left-0 z-20 flex h-6 w-16 shrink-0 items-center border-r border-b pr-2 text-xs sm:w-20">
+      <div
+        className={cn(
+          "bg-card border-border/40 sticky left-0 z-20 flex h-6 w-16 shrink-0 items-center border-r border-b pr-2 text-xs sm:w-20",
+          isCurrentMonth && "text-primary font-semibold",
+        )}
+      >
         <span className="truncate">
           <span className="sm:hidden">{label.slice(0, 3)}</span>
           <span className="hidden sm:inline">{label}</span>
@@ -112,7 +123,6 @@ function MonthRow({
               className={cn(
                 "border-border/40 h-6 border-r border-b",
                 dayBackground(day),
-                day.date === today && "ring-primary/40 ring-1 ring-inset",
               )}
             />
           );

@@ -79,7 +79,6 @@ export function MonthCalendar({ view, today }: { view: MonthView; today?: IsoDat
                 person={person}
                 days={view.days}
                 columns={columns}
-                today={today}
                 selected={selected}
                 onSelect={toggle}
               />
@@ -150,14 +149,12 @@ function PersonRow({
   person,
   days,
   columns,
-  today,
   selected,
   onSelect,
 }: {
   person: PersonYear;
   days: MonthDay[];
   columns: string;
-  today?: IsoDate;
   selected: IsoDate | null;
   onSelect: (date: IsoDate) => void;
 }) {
@@ -189,7 +186,9 @@ function PersonRow({
             className={cn(
               "border-border/40 h-6 border-r border-b last:border-r-0",
               dayBackground(day),
-              day.date === today && "ring-primary/40 ring-1 ring-inset",
+              // Heute wird allein in der Tagesleiste markiert. Ein Rahmen je
+              // Zelle ergäbe über die Zeilen hinweg eine Kette von Kästchen
+              // statt einer Spalte.
               selected === day.date && "bg-primary/20",
             )}
           />
