@@ -21,17 +21,11 @@ export async function saveSettings(key: SettingsKey, value: unknown) {
     if (!(key in SETTINGS_SCHEMAS)) return fail("Unbekannter Einstellungsbereich.");
     const parsed = SETTINGS_SCHEMAS[key].parse(value);
     await setSetting(key, parsed as never, user.id);
-    await writeAudit(user, "settings.update", "settings", key, redact(key, parsed));
+    await writeAudit(user, "settings.update", "settings", key, parsed);
     revalidatePath("/admin/settings");
     revalidatePath("/admin/notifications");
     return ok("Einstellungen gespeichert.");
   });
-}
-
-/** Passwörter gehören nicht ins Protokoll. */
-function redact(key: SettingsKey, value: unknown) {
-  if (key !== "smtp") return value;
-  return { ...(value as Record<string, unknown>), password: "***" };
 }
 
 export async function testSmtpAction(recipient: string) {

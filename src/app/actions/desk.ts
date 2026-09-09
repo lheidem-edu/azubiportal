@@ -1,12 +1,14 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { deskShifts, deskStaff } from "@/db/schema";
 import { fail, isoDateSchema, ok, requirePlannerAction, run, writeAudit } from "@/lib/action-utils";
 import { weekdayLabel } from "@/lib/dates";
+import { setSetting } from "@/lib/settings";
 
 function paths() {
   revalidatePath("/admin/desk");
@@ -124,5 +126,35 @@ export async function deleteDeskShift(id: string) {
     await writeAudit(user, "desk_shift.delete", "desk_shift", id);
     paths();
     return ok("Zuordnung entfernt.");
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Gesamtkalender                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Erzeugt die Adresse des Zentrale-Kalenders neu. Beim ersten Aufruf entsteht
+ * sie überhaupt erst; danach macht ein weiterer Aufruf die bisherige ungültig.
+ */
+export async function regenerateDeskFeedToken() {
+  return run(async () => {
+    const user = await requirePlannerAction();
+    const token = randomBytes(24).toString("base64url");
+    await setSetting("calendar", { deskFeedToken: token }, user.id);
+    await writeAudit(user, "calendar.desk_feed_reset", "settings", "calendar");
+    revalidatePath("/admin/desk");
+    return ok("Neue Kalender-Adresse erzeugt.", { token });
+  });
+}
+
+/** Macht den Kalender unzugänglich, ohne ihn neu auszugeben. */
+export async function disableDeskFeed() {
+  return run(async () => {
+    const user = await requirePlannerAction();
+    await setSetting("calendar", { deskFeedToken: "" }, user.id);
+    await writeAudit(user, "calendar.desk_feed_disable", "settings", "calendar");
+    revalidatePath("/admin/desk");
+    return ok("Der Kalender ist nicht mehr abrufbar.");
   });
 }

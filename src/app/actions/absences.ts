@@ -15,6 +15,8 @@ import {
 } from "@/lib/action-utils";
 import { canPlan } from "@/lib/labels";
 import { formatRangeDe } from "@/lib/dates";
+import { dropOutOfAssignments, restoreAssignments } from "@/lib/standin";
+import { notifyStandIns } from "@/lib/notify";
 import type { SessionUser } from "@/lib/session";
 import { personValue, type AbsenceRow, type PersonKind, type PersonOption } from "@/lib/people";
 
@@ -137,12 +139,38 @@ export async function createAbsence(input: unknown) {
       .returning();
 
     await writeAudit(user, "absence.create", "absence", created.id, data);
+
+    /**
+     * Fällt ein Azubi aus, verliert er seine Einteilungen und der nächste Rang
+     * rückt nach. Die Betroffenen erfahren das sofort – die Morgenerinnerung
+     * käme zu spät, wenn es um heute geht.
+     */
+    let standInNote = "";
+    if (data.personKind === "APPRENTICE") {
+      const standIns = await dropOutOfAssignments({
+        apprenticeId: data.personId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        dayPart: data.dayPart,
+      });
+      if (standIns.length > 0) {
+        const { sent, failed } = await notifyStandIns(standIns);
+        const names = standIns.map((person) => person.name).join(", ");
+        standInNote =
+          failed > 0
+            ? ` ${names} springt ein – die Benachrichtigung konnte nicht zugestellt werden.`
+            : sent > 0
+              ? ` ${names} springt ein und wurde per E-Mail informiert.`
+              : ` ${names} springt ein.`;
+      }
+    }
+
     paths();
 
     return ok(
       data.personKind === "DESK"
         ? `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}. Für diese Tage wird ganztägige Vertretung eingeplant.`
-        : `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}. Der Plan berücksichtigt das sofort.`,
+        : `Eingetragen: ${formatRangeDe(data.startDate, data.endDate)}.${standInNote || " Der Plan berücksichtigt das sofort."}`,
     );
   });
 }
@@ -156,6 +184,16 @@ export async function cancelAbsence(id: string) {
     const user = await assertCanEditPerson(kind, (entry.apprenticeId ?? entry.deskStaffId)!);
 
     await db.delete(absences).where(eq(absences.id, id));
+
+    // Der Ausfall ist zurückgenommen – die alten Einteilungen gelten wieder.
+    if (entry.apprenticeId) {
+      await restoreAssignments({
+        apprenticeId: entry.apprenticeId,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+      });
+    }
+
     await writeAudit(user, "absence.delete", "absence", id, entry);
     paths();
     return ok("Eintrag entfernt.");

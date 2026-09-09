@@ -327,23 +327,6 @@ export function SmtpSettingsForm({ initial }: { initial: Smtp }) {
             onChange={(v) => setValues({ ...values, secure: v })}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Benutzer">
-              <Input
-                value={values.user}
-                autoComplete="off"
-                onChange={(e) => setValues({ ...values, user: e.target.value })}
-              />
-            </Field>
-            <Field label="Passwort">
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={values.password}
-                onChange={(e) => setValues({ ...values, password: e.target.value })}
-              />
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Absender">
               <Input
                 placeholder="zentrale@firma.de"

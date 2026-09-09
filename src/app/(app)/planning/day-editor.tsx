@@ -144,10 +144,12 @@ export function DayEditor({ day }: { day: BoardDay }) {
                 ganztägigen Vertretung, dann wechselt auch die Pausenvertretung.
               </p>
             )}
-            {duty.missingRanks.length > 0 && !duty.derivedFrom && (
+            {(!duty.hasActing || duty.missingBackups > 0) && !duty.derivedFrom && (
               <p className="text-muted-foreground text-xs">
-                Unbesetzt: {duty.missingRanks.map((rank) => rankLabel(rank)).join(", ")} – über
-                „Plan erzeugen&ldquo; wird automatisch nachbesetzt.
+                {!duty.hasActing
+                  ? "Keine Vertretung eingeteilt"
+                  : `Es fehlt noch ${duty.missingBackups}× Ersatz`}{" "}
+                – über „Plan erzeugen&ldquo; wird automatisch nachbesetzt.
               </p>
             )}
           </div>

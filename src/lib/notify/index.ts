@@ -294,3 +294,109 @@ export async function failedNotificationCount(since: IsoDate) {
     .where(and(eq(notifications.status, "FAILED"), gte(notifications.createdAt, new Date(since))));
   return rows.length;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Einspringen                                                                */
+/* -------------------------------------------------------------------------- */
+
+type StandInEntry = {
+  date: IsoDate;
+  slotLabel: string;
+  startTime: string;
+  endTime: string;
+  forName: string;
+};
+
+export function buildStandInText(name: string, entries: StandInEntry[]) {
+  const lines = [`Hallo ${firstName(name)},`, ""];
+  lines.push(
+    entries.length === 1
+      ? "du springst als Ersatz ein:"
+      : "du springst als Ersatz ein – an diesen Terminen:",
+    "",
+  );
+  for (const entry of entries) {
+    lines.push(
+      `  • ${formatDateLongDe(entry.date)}, ${entry.slotLabel}: ${formatTime(entry.startTime)}–${formatTime(entry.endTime)} Uhr`,
+    );
+    lines.push(`    (für ${firstName(entry.forName)}, ausgefallen)`);
+  }
+  lines.push("", `Dein Plan: ${baseUrl()}/my-schedule`);
+  return lines.join("\n");
+}
+
+function buildStandInHtml(name: string, entries: StandInEntry[]) {
+  const rows = entries
+    .map(
+      (entry) => `<tr>
+        <td style="padding:6px 12px 6px 0;">${formatDateLongDe(entry.date)}</td>
+        <td style="padding:6px 12px 6px 0;">${entry.slotLabel}</td>
+        <td style="padding:6px 12px 6px 0;">${formatTime(entry.startTime)}–${formatTime(entry.endTime)} Uhr</td>
+        <td style="padding:6px 0;color:#666;">für ${firstName(entry.forName)}</td>
+      </tr>`,
+    )
+    .join("");
+  return `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:14px;color:#111;">
+    <p>Hallo ${firstName(name)},</p>
+    <p>du <strong>springst als Ersatz ein</strong>:</p>
+    <table style="border-collapse:collapse;">${rows}</table>
+    <p style="margin-top:16px;"><a href="${baseUrl()}/my-schedule" style="color:#0b5cad;">Deinen Plan öffnen</a></p>
+  </div>`;
+}
+
+/**
+ * Meldet den Nachrückenden, dass sie einspringen müssen. Wird direkt beim
+ * Eintragen der Abwesenheit ausgelöst – die Morgenerinnerung käme dafür zu
+ * spät, wenn es um heute geht.
+ */
+export async function notifyStandIns(
+  people: {
+    apprenticeId: string;
+    name: string;
+    email: string;
+    notifyEmail: boolean;
+    entries: StandInEntry[];
+  }[],
+) {
+  let sent = 0;
+  let failed = 0;
+
+  for (const person of people) {
+    if (!person.notifyEmail || !person.email || person.entries.length === 0) continue;
+    const subject =
+      person.entries.length === 1
+        ? `Du springst ein: ${formatDateLongDe(person.entries[0].date)}`
+        : `Du springst ein: ${person.entries.length} Termine`;
+
+    const dedupeKey = `standin:${person.apprenticeId}:${person.entries
+      .map((e) => `${e.date}`)
+      .join(",")}:${Date.now()}`;
+
+    const outcome = await sendMail({
+      to: person.email,
+      subject,
+      text: buildStandInText(person.name, person.entries),
+      html: buildStandInHtml(person.name, person.entries),
+    });
+
+    await db
+      .insert(notifications)
+      .values({
+        apprenticeId: person.apprenticeId,
+        channel: "EMAIL",
+        target: person.email,
+        subject,
+        body: buildStandInText(person.name, person.entries),
+        status: outcome.ok ? "SENT" : "FAILED",
+        error: outcome.ok ? null : (outcome.error ?? "Unbekannter Fehler"),
+        sentAt: outcome.ok ? new Date() : null,
+        dedupeKey,
+      })
+      .onConflictDoNothing();
+
+    if (outcome.ok) sent += 1;
+    else failed += 1;
+  }
+
+  return { sent, failed };
+}

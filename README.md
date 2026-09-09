@@ -44,6 +44,13 @@ wäre.
   sehen alle Angemeldeten; bearbeiten darf jede:r nur die eigenen Daten.
 - **Urlaubstage zählen nach Anwesenheit** – bei der festen Zentrale-Besetzung
   zählen nur die Wochentage, an denen sie tatsächlich in der Zentrale wäre.
+- **Krankmeldung wirkt sofort** – wer ausfällt, verliert seine Einteilungen,
+  der 1. Ersatz rückt nach und wird per E-Mail informiert. In dessen Kalender
+  wird aus dem unverbindlichen Ersatztermin ein fester Termin. Wird die
+  Abwesenheit gelöscht, gilt wieder die ursprüngliche Einteilung.
+- **Kalender für die Zentrale** – ein Abo für den Empfangsplatz zeigt für jeden
+  Tag die eingeteilte Person; wer ausgefallen ist und wer einspringt, steht in
+  der Beschreibung des Termins. Einzurichten unter *Verwaltung → Zentrale*.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
   für jedes Jahr aus der Osterformel berechnet, auch weit in der Zukunft. Es
   gibt keinen Stichtag, ab dem der Kalender gepflegt werden müsste.

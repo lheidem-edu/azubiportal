@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarOff, Lock, Sun, TriangleAlert, UserRoundX } from "lucide-react";
+import { ArrowUp, CalendarOff, Lock, Sun, TriangleAlert, UserRoundX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -155,30 +155,45 @@ function DutyBlock({
         <ul className="space-y-0.5">
           {duty.entries.map((entry) => (
             <li
-              key={entry.rank}
+              key={`${entry.rank}-${entry.droppedOut ? "out" : "in"}`}
               className={cn(
                 "flex items-center gap-1.5 text-xs",
-                entry.rank === 1 ? "font-medium" : "text-muted-foreground",
-                highlightApprenticeId === entry.apprenticeId && "text-primary font-semibold",
+                entry.isActing ? "font-medium" : "text-muted-foreground",
+                entry.droppedOut && "text-destructive/70",
+                highlightApprenticeId === entry.apprenticeId &&
+                  !entry.droppedOut &&
+                  "text-primary font-semibold",
               )}
             >
-              <span
-                className={cn(
-                  "inline-block size-1.5 shrink-0 rounded-full",
-                  entry.rank === 1 ? "bg-primary" : "bg-muted-foreground/40",
-                )}
-                aria-hidden
-              />
-              <span className="truncate">{entry.apprenticeName}</span>
-              {entry.rank > 1 && (
+              {entry.droppedOut ? (
+                <UserRoundX className="size-3 shrink-0" aria-label="fällt aus" />
+              ) : (
+                <span
+                  className={cn(
+                    "inline-block size-1.5 shrink-0 rounded-full",
+                    entry.isActing ? "bg-primary" : "bg-muted-foreground/40",
+                  )}
+                  aria-hidden
+                />
+              )}
+              <span className={cn("truncate", entry.droppedOut && "line-through")}>
+                {entry.apprenticeName}
+              </span>
+              {entry.isStandIn && (
+                <span className="text-primary flex shrink-0 items-center gap-0.5 text-[10px] font-medium whitespace-nowrap">
+                  <ArrowUp className="size-3" />
+                  springt ein
+                </span>
+              )}
+              {!entry.droppedOut && !entry.isActing && entry.rank > 1 && (
                 <span className="text-[10px] whitespace-nowrap">({rankLabel(entry.rank)})</span>
               )}
-              {duty.derivedFrom && entry.rank === 1 && (
+              {duty.derivedFrom && entry.isActing && (
                 <span className="text-[10px] whitespace-nowrap">
                   ({rankLabel(duty.derivedFrom.rank)})
                 </span>
               )}
-              {entry.isLocked && (
+              {entry.isLocked && !entry.droppedOut && (
                 <Lock className="text-muted-foreground size-3 shrink-0" aria-label="gesperrt" />
               )}
             </li>
@@ -186,11 +201,16 @@ function DutyBlock({
         </ul>
       )}
 
-      {duty.entries.length > 0 && duty.missingRanks.length > 0 && (
-        <p className="text-muted-foreground mt-0.5 text-[11px]">
-          {duty.missingRanks.includes(1)
+      {duty.entries.length > 0 && (!duty.hasActing || duty.missingBackups > 0) && (
+        <p
+          className={cn(
+            "mt-0.5 text-[11px]",
+            duty.hasActing ? "text-muted-foreground" : "text-destructive",
+          )}
+        >
+          {!duty.hasActing
             ? "Keine Vertretung eingeteilt"
-            : `${duty.missingRanks.length} Ersatz fehlt`}
+            : `${duty.missingBackups} Ersatz fehlt`}
         </p>
       )}
     </div>

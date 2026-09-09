@@ -2,6 +2,7 @@ import Link from "next/link";
 import { and, eq, gte, sql } from "drizzle-orm";
 import {
   ArrowRight,
+  ArrowUp,
   CalendarCheck,
   Clock,
   TriangleAlert,
@@ -28,6 +29,7 @@ import { getPlanBoard, getUpcomingForApprentice, type BoardDay } from "@/lib/sch
 import { enumerateDe, rankLabel } from "@/lib/labels";
 import { firstName } from "@/lib/names";
 import { requireUser } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { canPlan } from "@/lib/auth";
 import { getSetting } from "@/lib/settings";
 import { AwayTodayButton } from "./sick-today-button";
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
 
   const todayBoard = board.find((d) => d.date === day);
   const upcomingGaps = board.filter(
-    (d) => d.isWorkday && d.duties.some((duty) => duty.missingRanks.includes(1)),
+    (d) => d.isWorkday && d.duties.some((duty) => !duty.hasActing),
   );
   const horizonEnd = nextWorkWeeks(general.planningWeeks, day).end;
   const planIncomplete = !planEnd || planEnd < horizonEnd;
@@ -143,24 +145,46 @@ export default async function DashboardPage() {
                   ) : (
                     <ul className="space-y-1">
                       {duty.entries.map((entry) => (
-                        <li key={entry.rank} className="flex items-center justify-between gap-2">
+                        <li
+                          key={`${entry.rank}-${entry.droppedOut ? "out" : "in"}`}
+                          className={cn(
+                            "flex items-center justify-between gap-2 rounded-md",
+                            entry.isStandIn && "bg-primary/5 -mx-1.5 px-1.5 py-0.5",
+                          )}
+                        >
                           <span
-                            className={
-                              entry.rank === 1
-                                ? "text-sm font-medium"
-                                : "text-muted-foreground text-sm"
-                            }
+                            className={cn(
+                              "flex min-w-0 items-center gap-1.5 text-sm",
+                              entry.isActing ? "font-medium" : "text-muted-foreground",
+                              entry.droppedOut && "text-destructive",
+                            )}
                           >
-                            {entry.apprenticeName}
+                            {entry.droppedOut && (
+                              <UserRoundX className="size-4 shrink-0" aria-hidden />
+                            )}
+                            {entry.isStandIn && (
+                              <ArrowUp className="text-primary size-4 shrink-0" aria-hidden />
+                            )}
+                            <span className={cn("truncate", entry.droppedOut && "line-through")}>
+                              {entry.apprenticeName}
+                            </span>
                             {entry.apprenticeId === user.apprenticeId && (
-                              <Badge variant="secondary" className="ml-2 h-5">
+                              <Badge variant="secondary" className="h-5 shrink-0">
                                 du
                               </Badge>
                             )}
                           </span>
-                          <span className="text-muted-foreground text-xs">
-                            {rankLabel(entry.rank)}
-                          </span>
+                          {entry.droppedOut ? (
+                            <Badge variant="destructive" className="h-5 shrink-0">
+                              fällt aus
+                            </Badge>
+                          ) : entry.isStandIn ? (
+                            <Badge className="h-5 shrink-0">springt ein</Badge>
+                          ) : (
+                            <span className="text-muted-foreground shrink-0 text-xs">
+                              {rankLabel(entry.rank)}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

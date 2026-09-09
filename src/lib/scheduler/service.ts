@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   absences,
@@ -287,6 +287,14 @@ export type AssignmentView = {
   startTime: string;
   endTime: string;
   sortOrder: number;
+  /** Die Person fällt aus – etwa wegen einer Krankmeldung. */
+  droppedOut: boolean;
+  /** Diese Person übernimmt den Dienst tatsächlich. */
+  isActing: boolean;
+  /** Sie ist dabei nachgerückt, war also ursprünglich nur Ersatz. */
+  isStandIn: boolean;
+  /** Für wen sie einspringt. */
+  standsInFor: string | null;
 };
 
 export async function getAssignments(
@@ -320,13 +328,112 @@ export async function getAssignments(
       and(
         gte(assignments.date, rangeStart),
         lte(assignments.date, rangeEnd),
-        filter.apprenticeId ? eq(assignments.apprenticeId, filter.apprenticeId) : undefined,
-        eq(assignments.status, "PLANNED"),
+        ne(assignments.status, "CANCELLED"),
       ),
     )
     .orderBy(asc(assignments.date), asc(coverageSlots.sortOrder), asc(assignments.rank));
 
-  return rows as AssignmentView[];
+  /**
+   * Wer den Dienst tatsächlich übernimmt, hängt von den anderen Einträgen
+   * desselben Slots ab: Fällt die Vertretung aus, rückt der niedrigste noch
+   * verfügbare Rang nach. Deshalb wird immer der ganze Slot geladen und erst
+   * danach auf die gesuchte Person gefiltert.
+   */
+  const dropouts = await db
+    .select({
+      date: assignments.date,
+      slotId: assignments.slotId,
+      rank: assignments.rank,
+      name: apprentices.displayName,
+    })
+    .from(assignments)
+    .innerJoin(apprentices, eq(assignments.apprenticeId, apprentices.id))
+    .where(
+      and(
+        gte(assignments.date, rangeStart),
+        lte(assignments.date, rangeEnd),
+        eq(assignments.status, "CANCELLED"),
+      ),
+    );
+
+  const droppedBySlot = new Map<string, { rank: number; name: string }[]>();
+  for (const entry of dropouts) {
+    const key = `${entry.date}|${entry.slotId}`;
+    const list = droppedBySlot.get(key) ?? [];
+    list.push({ rank: entry.rank, name: entry.name });
+    droppedBySlot.set(key, list);
+  }
+
+  const actingRank = new Map<string, number>();
+  for (const row of rows) {
+    const key = `${row.date}|${row.slotId}`;
+    const current = actingRank.get(key);
+    if (current === undefined || row.rank < current) actingRank.set(key, row.rank);
+  }
+
+  const views: AssignmentView[] = rows.map((row) => {
+    const key = `${row.date}|${row.slotId}`;
+    const isActing = actingRank.get(key) === row.rank;
+    const replaced = (droppedBySlot.get(key) ?? [])
+      .filter((entry) => entry.rank < row.rank)
+      .sort((a, b) => a.rank - b.rank);
+    return {
+      ...row,
+      droppedOut: false,
+      isActing,
+      isStandIn: isActing && row.rank > 1,
+      standsInFor: isActing && replaced.length > 0 ? replaced[0].name : null,
+    };
+  });
+
+  return filter.apprenticeId
+    ? views.filter((view) => view.apprenticeId === filter.apprenticeId)
+    : views;
+}
+
+/** Ausgefallene Einteilungen eines Zeitraums – für die Anzeige „ist krank". */
+export async function getDropouts(
+  rangeStart: IsoDate,
+  rangeEnd: IsoDate,
+): Promise<AssignmentView[]> {
+  const rows = await db
+    .select({
+      id: assignments.id,
+      date: assignments.date,
+      rank: assignments.rank,
+      status: assignments.status,
+      isLocked: assignments.isLocked,
+      isManual: assignments.isManual,
+      note: assignments.note,
+      apprenticeId: assignments.apprenticeId,
+      apprenticeName: apprentices.displayName,
+      slotId: coverageSlots.id,
+      slotKey: coverageSlots.key,
+      slotLabel: coverageSlots.label,
+      slotKind: coverageSlots.kind,
+      startTime: coverageSlots.startTime,
+      endTime: coverageSlots.endTime,
+      sortOrder: coverageSlots.sortOrder,
+    })
+    .from(assignments)
+    .innerJoin(apprentices, eq(assignments.apprenticeId, apprentices.id))
+    .innerJoin(coverageSlots, eq(assignments.slotId, coverageSlots.id))
+    .where(
+      and(
+        gte(assignments.date, rangeStart),
+        lte(assignments.date, rangeEnd),
+        eq(assignments.status, "CANCELLED"),
+      ),
+    )
+    .orderBy(asc(assignments.date), asc(coverageSlots.sortOrder), asc(assignments.rank));
+
+  return rows.map((row) => ({
+    ...row,
+    droppedOut: true,
+    isActing: false,
+    isStandIn: false,
+    standsInFor: null,
+  }));
 }
 
 /** Lastübersicht je Azubi über einen Zeitraum – Grundlage der Fairness-Anzeige. */
@@ -384,6 +491,12 @@ export type BoardEntry = {
   isManual: boolean;
   /** Ein Dienst kann aus mehreren Slots bestehen – hier alle zugehörigen IDs. */
   assignmentIds: string[];
+  /** Die Person fällt aus und ist nur noch zur Information aufgeführt. */
+  droppedOut: boolean;
+  /** Diese Person übernimmt den Dienst tatsächlich. */
+  isActing: boolean;
+  /** Sie ist dabei nachgerückt. */
+  isStandIn: boolean;
 };
 
 export type BoardDuty = {
@@ -396,7 +509,10 @@ export type BoardDuty = {
   times: { slotId: string; label: string; startTime: string; endTime: string }[];
   backupCount: number;
   entries: BoardEntry[];
-  missingRanks: number[];
+  /** Jemand übernimmt den Dienst tatsächlich. */
+  hasActing: boolean;
+  /** So viele Ersatzleute fehlen noch. */
+  missingBackups: number;
 };
 
 export type BoardDay = {
@@ -420,10 +536,13 @@ export async function getPlanBoard(rangeStart: IsoDate, rangeEnd: IsoDate): Prom
     loadSchedulerInput(rangeStart, rangeEnd),
     getAssignments(rangeStart, rangeEnd),
   ]);
+  // Ausgefallene Personen bleiben sichtbar – durchgestrichen neben der Person,
+  // die für sie einspringt.
+  const dropouts = await getDropouts(rangeStart, rangeEnd);
   const contexts = describeDays(input);
 
   const byDaySlot = new Map<string, AssignmentView[]>();
-  for (const entry of entries) {
+  for (const entry of [...entries, ...dropouts]) {
     const key = `${entry.date}|${entry.slotId}`;
     const list = byDaySlot.get(key) ?? [];
     list.push(entry);
@@ -441,10 +560,13 @@ export async function getPlanBoard(rangeStart: IsoDate, rangeEnd: IsoDate): Prom
     requiresFullDay: context.requiresFullDay,
     duties: context.duties.map((duty) => {
       /** Alle Einteilungen des Dienstes, nach Rang und Person zusammengefasst. */
-      const byRank = new Map<number, BoardEntry>();
+      const byKey = new Map<string, BoardEntry>();
       for (const slot of duty.slots) {
         for (const row of byDaySlot.get(`${context.date}|${slot.id}`) ?? []) {
-          const existing = byRank.get(row.rank);
+          // Ausgefallene und nachgerückte Person teilen sich denselben Rang,
+          // deshalb gehört der Status in den Schlüssel.
+          const key = `${row.rank}|${row.droppedOut ? "out" : "in"}`;
+          const existing = byKey.get(key);
           if (existing && existing.apprenticeId === row.apprenticeId) {
             existing.assignmentIds.push(row.id);
             existing.isLocked ||= row.isLocked;
@@ -452,21 +574,29 @@ export async function getPlanBoard(rangeStart: IsoDate, rangeEnd: IsoDate): Prom
             continue;
           }
           if (existing) continue; // widersprüchliche Altdaten: erster Eintrag gewinnt
-          byRank.set(row.rank, {
+          byKey.set(key, {
             rank: row.rank,
             apprenticeId: row.apprenticeId,
             apprenticeName: row.apprenticeName,
             isLocked: row.isLocked,
             isManual: row.isManual,
             assignmentIds: [row.id],
+            droppedOut: row.droppedOut,
+            isActing: row.isActing,
+            isStandIn: row.isStandIn,
           });
         }
       }
 
-      const missingRanks: number[] = [];
-      for (let rank = 1; rank <= 1 + duty.backupCount; rank++) {
-        if (!byRank.has(rank)) missingRanks.push(rank);
-      }
+      /**
+       * Was fehlt, misst sich an den Personen, die noch da sind – nicht an den
+       * Rangnummern. Fällt die Vertretung aus und jemand rückt nach, ist der
+       * Dienst besetzt, auch wenn Rang 1 leer steht.
+       */
+      const available = [...byKey.values()].filter((entry) => !entry.droppedOut);
+      const hasActing = available.some((entry) => entry.isActing);
+      const standby = available.filter((entry) => !entry.isActing).length;
+      const missingBackups = Math.max(0, duty.backupCount - standby);
 
       return {
         key: duty.key,
@@ -481,8 +611,11 @@ export async function getPlanBoard(rangeStart: IsoDate, rangeEnd: IsoDate): Prom
           endTime: s.endTime,
         })),
         backupCount: duty.backupCount,
-        entries: [...byRank.values()].sort((a, b) => a.rank - b.rank),
-        missingRanks,
+        entries: [...byKey.values()].sort(
+          (a, b) => a.rank - b.rank || Number(b.droppedOut) - Number(a.droppedOut),
+        ),
+        hasActing,
+        missingBackups,
       };
     }),
   }));

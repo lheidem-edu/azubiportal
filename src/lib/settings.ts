@@ -46,14 +46,17 @@ export const reminderSettingsSchema = z.object({
   notifyDayBefore: z.boolean().default(false),
 });
 
+/**
+ * Versand über den betriebseigenen Relay – ohne Anmeldung. Der Server nimmt
+ * Nachrichten aus dem eigenen Netz an; Benutzername und Kennwort braucht es
+ * dafür nicht.
+ */
 export const smtpSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   host: z.string().default(""),
-  port: z.number().int().min(1).max(65535).default(587),
+  port: z.number().int().min(1).max(65535).default(25),
   secure: z.boolean().default(false),
-  user: z.string().default(""),
-  password: z.string().default(""),
-  from: z.string().default("zentrale@example.com"),
+  from: z.string().default("azubiportal@example.com"),
   replyTo: z.string().default(""),
 });
 
@@ -65,12 +68,22 @@ export const teamsSettingsSchema = z.object({
   postDailyOverview: z.boolean().default(false),
 });
 
+/**
+ * Der Gesamtkalender der Zentrale hängt an einem zufälligen Token in der
+ * Adresse – so lässt er sich ohne Anmeldung abonnieren und bei Bedarf
+ * ungültig machen.
+ */
+export const calendarSettingsSchema = z.object({
+  deskFeedToken: z.string().default(""),
+});
+
 export const SETTINGS_SCHEMAS = {
   general: generalSettingsSchema,
   planning: planningSettingsSchema,
   reminders: reminderSettingsSchema,
   smtp: smtpSettingsSchema,
   teams: teamsSettingsSchema,
+  calendar: calendarSettingsSchema,
 } as const;
 
 export type SettingsKey = keyof typeof SETTINGS_SCHEMAS;

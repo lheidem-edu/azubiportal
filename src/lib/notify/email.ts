@@ -12,7 +12,6 @@ async function getTransporter() {
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
-    auth: smtp.user ? { user: smtp.user, pass: smtp.password } : undefined,
   });
   cached = { key, transporter };
   return transporter;
