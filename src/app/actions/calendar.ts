@@ -4,7 +4,12 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { companyClosures, publicHolidays, schoolHolidays } from "@/db/schema";
+import {
+  companyClosures,
+  publicHolidays,
+  schoolHolidayApprentices,
+  schoolHolidays,
+} from "@/db/schema";
 import {
   fail,
   isoDateSchema,
@@ -171,6 +176,8 @@ const schoolHolidaySchema = z
     name: z.string().min(2, "Bitte eine Bezeichnung angeben."),
     startDate: isoDateSchema,
     endDate: isoDateSchema,
+    /** Leer heißt: gilt für alle Auszubildenden. */
+    apprenticeIds: z.array(z.string().uuid()).default([]),
   })
   .refine((v) => v.startDate <= v.endDate, {
     message: "Das Enddatum darf nicht vor dem Startdatum liegen.",
@@ -179,7 +186,7 @@ const schoolHolidaySchema = z
 
 export async function createSchoolHoliday(input: unknown) {
   return run(async () => {
-    const data = schoolHolidaySchema.parse(input);
+    const { apprenticeIds, ...data } = schoolHolidaySchema.parse(input);
     const user = await requirePlannerAction();
     const [created] = await db
       .insert(schoolHolidays)
@@ -187,9 +194,27 @@ export async function createSchoolHoliday(input: unknown) {
       .onConflictDoNothing()
       .returning();
     if (!created) return fail("Für diesen Zeitraum gibt es bereits einen Eintrag.");
-    await writeAudit(user, "school_holiday.create", "school_holiday", created.id, data);
+
+    // Ohne Zuordnung gilt der Eintrag für alle – dann bleibt die Tabelle leer.
+    if (apprenticeIds.length > 0) {
+      await db.insert(schoolHolidayApprentices).values(
+        apprenticeIds.map((apprenticeId) => ({
+          schoolHolidayId: created.id,
+          apprenticeId,
+        })),
+      );
+    }
+
+    await writeAudit(user, "school_holiday.create", "school_holiday", created.id, {
+      ...data,
+      apprenticeIds,
+    });
     paths();
-    return ok("Ferien ergänzt.");
+    return ok(
+      apprenticeIds.length > 0
+        ? `Schulfrei für ${apprenticeIds.length} Auszubildende eingetragen.`
+        : "Schulfrei für alle eingetragen.",
+    );
   });
 }
 

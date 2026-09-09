@@ -1,6 +1,7 @@
 import {
   boolean,
   check,
+  primaryKey,
   date,
   index,
   jsonb,
@@ -306,6 +307,30 @@ export const schoolHolidays = pgTable(
   (t) => [
     unique("school_holidays_unique").on(t.region, t.startDate, t.endDate),
     index("school_holidays_range_idx").on(t.startDate, t.endDate),
+  ],
+);
+
+/**
+ * Für wen ein schulfreier Zeitraum gilt.
+ *
+ * Die Ferienordnung des Landes gilt für alle – solche Einträge haben hier
+ * keine Zeilen. Bewegliche Ferientage und pädagogische Tage legt dagegen jede
+ * Schule für sich fest; sie betreffen deshalb nur die Auszubildenden, die
+ * dorthin gehen.
+ */
+export const schoolHolidayApprentices = pgTable(
+  "school_holiday_apprentices",
+  {
+    schoolHolidayId: uuid()
+      .notNull()
+      .references(() => schoolHolidays.id, { onDelete: "cascade" }),
+    apprenticeId: uuid()
+      .notNull()
+      .references(() => apprentices.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.schoolHolidayId, t.apprenticeId] }),
+    index("school_holiday_apprentice_idx").on(t.apprenticeId),
   ],
 );
 

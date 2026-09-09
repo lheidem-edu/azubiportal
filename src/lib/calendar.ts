@@ -1,6 +1,12 @@
 import { and, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { companyClosures, publicHolidays, schoolHolidays } from "@/db/schema";
+import {
+  apprentices,
+  companyClosures,
+  publicHolidays,
+  schoolHolidayApprentices,
+  schoolHolidays,
+} from "@/db/schema";
 import { nrwHolidays } from "@/lib/holidays";
 import {
   NRW_SCHOOL_HOLIDAYS,
@@ -102,11 +108,23 @@ export async function resolveHolidays(
   return all.filter((h) => h.isActive).map(({ date, name }) => ({ date, name }));
 }
 
-/** Schulferien eines Zeitraums – in dieser Zeit ist keine Berufsschule. */
+/**
+ * Schulfreie Zeiträume – dann ist keine Berufsschule. Mitgeliefert wird, für
+ * wen sie gelten: Eine leere Liste bedeutet „für alle“.
+ */
 export async function listSchoolHolidays(from: IsoDate, to: IsoDate, region = "NRW") {
-  return db
-    .select()
+  const rows = await db
+    .select({
+      holiday: schoolHolidays,
+      apprenticeId: schoolHolidayApprentices.apprenticeId,
+      apprenticeName: apprentices.displayName,
+    })
     .from(schoolHolidays)
+    .leftJoin(
+      schoolHolidayApprentices,
+      eq(schoolHolidayApprentices.schoolHolidayId, schoolHolidays.id),
+    )
+    .leftJoin(apprentices, eq(apprentices.id, schoolHolidayApprentices.apprenticeId))
     .where(
       and(
         eq(schoolHolidays.region, region),
@@ -115,6 +133,21 @@ export async function listSchoolHolidays(from: IsoDate, to: IsoDate, region = "N
       ),
     )
     .orderBy(schoolHolidays.startDate);
+
+  const byId = new Map<
+    string,
+    (typeof schoolHolidays.$inferSelect) & { apprenticeIds: string[]; apprenticeNames: string[] }
+  >();
+  for (const row of rows) {
+    const entry =
+      byId.get(row.holiday.id) ?? { ...row.holiday, apprenticeIds: [], apprenticeNames: [] };
+    if (row.apprenticeId) {
+      entry.apprenticeIds.push(row.apprenticeId);
+      if (row.apprenticeName) entry.apprenticeNames.push(row.apprenticeName);
+    }
+    byId.set(row.holiday.id, entry);
+  }
+  return [...byId.values()];
 }
 
 /**

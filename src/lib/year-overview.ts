@@ -101,7 +101,15 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
   const days: YearDay[] = eachDay(from, to).map((date) => {
     const weekday = isoWeekday(date);
     const closure = closures.find((c) => date >= c.startDate && date <= c.endDate);
-    const ferien = schoolHolidayRows.find((f) => date >= f.startDate && date <= f.endDate);
+    /*
+     * Für den Hintergrund zählen nur Zeiträume, die für alle gelten. Ein
+     * pädagogischer Tag einer einzelnen Schule wäre über die ganze Spalte
+     * gelegt eine Falschaussage; er zeigt sich stattdessen darin, dass der
+     * Schultag der betroffenen Person entfällt.
+     */
+    const ferien = schoolHolidayRows.find(
+      (f) => f.apprenticeIds.length === 0 && date >= f.startDate && date <= f.endDate,
+    );
     return {
       date,
       weekday,
@@ -174,7 +182,7 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
       if (terms?.length) {
         for (const day of days) {
           if (day.isWeekend || day.holiday) continue;
-          if (isSchoolDay(terms, day.date, schoolHolidayRows)) {
+          if (isSchoolDay(terms, day.date, schoolHolidayRows, person.id)) {
             marks[day.date] = {
               kind: "SCHOOL",
               label: "Berufsschule",

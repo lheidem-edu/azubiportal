@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { companyClosures } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { apprentices, companyClosures } from "@/db/schema";
 import { listEffectiveHolidays, listSchoolHolidays } from "@/lib/calendar";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,10 +16,15 @@ export default async function CalendarAdminPage(props: PageProps<"/admin/calenda
   const params = await props.searchParams;
   const year = Number(params.year) || new Date().getFullYear();
 
-  const [holidays, closures, ferien] = await Promise.all([
+  const [holidays, closures, ferien, azubis] = await Promise.all([
     listEffectiveHolidays(`${year}-01-01`, `${year}-12-31`),
     db.select().from(companyClosures).orderBy(companyClosures.startDate),
     listSchoolHolidays(`${year}-01-01`, `${year}-12-31`),
+    db
+      .select({ id: apprentices.id, name: apprentices.displayName })
+      .from(apprentices)
+      .where(eq(apprentices.isPlannable, true))
+      .orderBy(apprentices.displayName),
   ]);
 
   return (
@@ -39,6 +45,7 @@ export default async function CalendarAdminPage(props: PageProps<"/admin/calenda
           <SchoolHolidayList
             rows={ferien as SchoolHolidayRow[]}
             coveredUntil={NRW_SCHOOL_HOLIDAYS_UNTIL}
+            apprentices={azubis}
           />
         </CardContent>
       </Card>

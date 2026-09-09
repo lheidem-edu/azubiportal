@@ -210,7 +210,9 @@ describe("Planungs-Engine", () => {
         rangeStart: "2026-10-19", // Montag in den Herbstferien 2026
         rangeEnd: "2026-10-19",
         schoolTerms: [withSchool],
-        schoolHolidays: [{ startDate: "2026-10-17", endDate: "2026-10-31" }],
+        schoolHolidays: [
+          { startDate: "2026-10-17", endDate: "2026-10-31", apprenticeIds: [] },
+        ],
       }),
     );
     expect(ferien.days[0].duties[0].availableCount).toBe(4);
@@ -224,6 +226,47 @@ describe("Planungs-Engine", () => {
       }),
     );
     expect(unterricht.days[0].duties[0].availableCount).toBe(3);
+  });
+
+  it("lässt einen schulfreien Tag nur für die genannten Auszubildenden gelten", () => {
+    // Bewegliche Ferientage und pädagogische Tage legt jede Schule für sich
+    // fest – wer woanders zur Schule geht, hat trotzdem Unterricht.
+    const montagsSchule = (apprenticeId: string) => ({
+      apprenticeId,
+      weekday: 1,
+      validFrom: "2020-01-01",
+      validTo: null,
+      intervalWeeks: 1,
+      anchorWeek: null,
+    });
+    const input = {
+      rangeStart: "2026-10-05" as const,
+      rangeEnd: "2026-10-05" as const, // Montag ohne Ferien
+      schoolTerms: [montagsSchule("a"), montagsSchule("b")],
+    };
+
+    const ohne = generatePlan(baseInput({ ...input, schoolHolidays: [] }));
+    expect(ohne.days[0].duties[0].availableCount).toBe(2); // a und b in der Schule
+
+    const nurFuerA = generatePlan(
+      baseInput({
+        ...input,
+        schoolHolidays: [
+          { startDate: "2026-10-05", endDate: "2026-10-05", apprenticeIds: ["a"] },
+        ],
+      }),
+    );
+    expect(nurFuerA.days[0].duties[0].availableCount).toBe(3); // b bleibt in der Schule
+
+    const fuerAlle = generatePlan(
+      baseInput({
+        ...input,
+        schoolHolidays: [
+          { startDate: "2026-10-05", endDate: "2026-10-05", apprenticeIds: [] },
+        ],
+      }),
+    );
+    expect(fuerAlle.days[0].duties[0].availableCount).toBe(4);
   });
 
   it("berücksichtigt den 14-tägigen Schulrhythmus", () => {

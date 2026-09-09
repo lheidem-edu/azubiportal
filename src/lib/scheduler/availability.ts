@@ -9,17 +9,20 @@ import type {
 
 export type DateRange = { startDate: IsoDate; endDate: IsoDate };
 
+/** Schulfreier Zeitraum mit Geltungsbereich; leere Liste heißt: für alle. */
+export type SchoolFreeRange = DateRange & { apprenticeIds?: string[] };
+
 export type AvailabilityLookup = {
   schoolTermsByApprentice: Map<string, SchedulerSchoolTerm[]>;
   absencesByApprentice: Map<string, SchedulerAbsence[]>;
-  /** Schulferien – in dieser Zeit fällt der Berufsschulunterricht aus. */
-  schoolHolidays: DateRange[];
+  /** Schulfreie Zeiten – dann fällt der Berufsschulunterricht aus. */
+  schoolHolidays: SchoolFreeRange[];
 };
 
 export function buildAvailabilityLookup(
   schoolTerms: SchedulerSchoolTerm[],
   absences: SchedulerAbsence[],
-  schoolHolidays: DateRange[] = [],
+  schoolHolidays: SchoolFreeRange[] = [],
 ): AvailabilityLookup {
   const schoolTermsByApprentice = new Map<string, SchedulerSchoolTerm[]>();
   for (const term of schoolTerms) {
@@ -42,8 +45,20 @@ export function isEmployedOn(apprentice: SchedulerApprentice, date: IsoDate): bo
   return true;
 }
 
-export function isSchoolHoliday(holidays: DateRange[], date: IsoDate): boolean {
-  return holidays.some((range) => date >= range.startDate && date <= range.endDate);
+/**
+ * Ist an diesem Tag schulfrei? Zeiträume ohne Geltungsbereich gelten für alle;
+ * die übrigen nur für die genannten Auszubildenden.
+ */
+export function isSchoolHoliday(
+  holidays: SchoolFreeRange[],
+  date: IsoDate,
+  apprenticeId?: string,
+): boolean {
+  return holidays.some((range) => {
+    if (date < range.startDate || date > range.endDate) return false;
+    if (!range.apprenticeIds || range.apprenticeIds.length === 0) return true;
+    return apprenticeId !== undefined && range.apprenticeIds.includes(apprenticeId);
+  });
 }
 
 /**
@@ -53,10 +68,14 @@ export function isSchoolHoliday(holidays: DateRange[], date: IsoDate): boolean {
 export function isSchoolDay(
   terms: SchedulerSchoolTerm[] | undefined,
   date: IsoDate,
-  schoolHolidays: DateRange[] = [],
+  schoolHolidays: SchoolFreeRange[] = [],
+  apprenticeId?: string,
 ): boolean {
   if (!terms?.length) return false;
-  if (isSchoolHoliday(schoolHolidays, date)) return false;
+  // Der Geltungsbereich braucht die Person; ohne Angabe wird sie aus den
+  // Schultagen abgeleitet, die ohnehin zu genau einer Person gehören.
+  const person = apprenticeId ?? terms[0]?.apprenticeId;
+  if (isSchoolHoliday(schoolHolidays, date, person)) return false;
   const weekday = isoWeekday(date);
   return terms.some((term) => {
     if (term.weekday !== weekday) return false;
@@ -94,7 +113,14 @@ export function checkAvailability(
 ): AvailabilityCheck {
   if (!apprentice.isPlannable) return { available: false, reason: "NOT_PLANNABLE" };
   if (!isEmployedOn(apprentice, date)) return { available: false, reason: "NOT_EMPLOYED" };
-  if (isSchoolDay(lookup.schoolTermsByApprentice.get(apprentice.id), date, lookup.schoolHolidays)) {
+  if (
+    isSchoolDay(
+      lookup.schoolTermsByApprentice.get(apprentice.id),
+      date,
+      lookup.schoolHolidays,
+      apprentice.id,
+    )
+  ) {
     return { available: false, reason: "SCHOOL" };
   }
   const absences = lookup.absencesByApprentice.get(apprentice.id) ?? [];

@@ -58,10 +58,17 @@ export type SchedulerDeskAbsence = {
 
 export type SchedulerHoliday = { date: IsoDate; name: string };
 
-/** Schulferien – setzen die wiederkehrenden Berufsschultage aus. */
+/** Schulfreie Zeit – setzt die wiederkehrenden Berufsschultage aus. */
 export type SchedulerSchoolHoliday = {
   startDate: IsoDate;
   endDate: IsoDate;
+  /**
+   * Für wen der Zeitraum gilt. Leer bedeutet: für alle – so sind die Ferien
+   * des Landes hinterlegt. Bewegliche Ferientage und pädagogische Tage legt
+   * jede Schule für sich fest und betreffen deshalb nur die genannten
+   * Auszubildenden.
+   */
+  apprenticeIds: string[];
 };
 
 export type SchedulerClosure = {

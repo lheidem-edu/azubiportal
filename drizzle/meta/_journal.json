@@ -43,6 +43,13 @@
       "when": 1788958484026,
       "tag": "0005_planner_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788959877321,
+      "tag": "0006_school_free_days_per_apprentice",
+      "breakpoints": true
     }
   ]
 }

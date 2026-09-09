@@ -9,6 +9,7 @@ import {
   deskShifts,
   deskStaff,
   planRuns,
+  schoolHolidayApprentices,
   schoolHolidays,
 } from "@/db/schema";
 import { addDays, type IsoDate } from "@/lib/dates";
@@ -90,9 +91,19 @@ export async function loadSchedulerInput(
       .select()
       .from(companyClosures)
       .where(and(lte(companyClosures.startDate, rangeEnd), gte(companyClosures.endDate, rangeStart))),
+    // Mit Geltungsbereich: Ein Eintrag ohne zugeordnete Personen gilt für alle.
     db
-      .select({ startDate: schoolHolidays.startDate, endDate: schoolHolidays.endDate })
+      .select({
+        id: schoolHolidays.id,
+        startDate: schoolHolidays.startDate,
+        endDate: schoolHolidays.endDate,
+        apprenticeId: schoolHolidayApprentices.apprenticeId,
+      })
       .from(schoolHolidays)
+      .leftJoin(
+        schoolHolidayApprentices,
+        eq(schoolHolidayApprentices.schoolHolidayId, schoolHolidays.id),
+      )
       .where(
         and(
           eq(schoolHolidays.isActive, true),
@@ -155,7 +166,7 @@ export async function loadSchedulerInput(
       endDate: a.endDate,
     })),
     holidays: holidayRows,
-    schoolHolidays: schoolHolidayRows,
+    schoolHolidays: groupSchoolHolidays(schoolHolidayRows),
     closures: closureRows.map((c) => ({
       name: c.name,
       startDate: c.startDate,
@@ -626,4 +637,24 @@ export async function listApprentices() {
   return db.query.apprentices.findMany({
     orderBy: (a, { asc }) => [asc(a.displayName)],
   });
+}
+
+/**
+ * Fasst die Zeilen des Verbunds zu je einem Zeitraum zusammen. Ein Eintrag
+ * ohne zugeordnete Person gilt für alle und behält eine leere Liste.
+ */
+function groupSchoolHolidays(
+  rows: { id: string; startDate: string; endDate: string; apprenticeId: string | null }[],
+) {
+  const byId = new Map<string, { startDate: string; endDate: string; apprenticeIds: string[] }>();
+  for (const row of rows) {
+    const entry = byId.get(row.id) ?? {
+      startDate: row.startDate,
+      endDate: row.endDate,
+      apprenticeIds: [],
+    };
+    if (row.apprenticeId) entry.apprenticeIds.push(row.apprenticeId);
+    byId.set(row.id, entry);
+  }
+  return [...byId.values()];
 }

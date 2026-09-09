@@ -52,10 +52,12 @@ wäre.
 - **Kalender für die Zentrale** – ein Abo für den Empfangsplatz zeigt für jeden
   Tag die eingeteilte Person; wer ausgefallen ist und wer einspringt, steht in
   der Beschreibung des Termins. Einzurichten unter *Verwaltung → Zentrale*.
-- **Schulfreie Tage** – neben den Ferien lassen sich einzelne Tage eintragen,
-  an denen die Schule zubleibt: bewegliche Ferientage und pädagogische Tage.
-  Der Betrieb läuft weiter, die Auszubildenden sind also da und können die
-  Zentrale übernehmen.
+- **Schulfreie Tage je Schule** – neben den Ferien lassen sich einzelne Tage
+  eintragen, an denen die Schule zubleibt: bewegliche Ferientage und
+  pädagogische Tage. Sie gelten wahlweise für alle oder nur für ausgewählte
+  Auszubildende, denn jede Berufsschule legt sie für sich fest. Der Betrieb
+  läuft weiter, die Betroffenen sind also da und können die Zentrale
+  übernehmen.
 - **Feiertage ohne Verfallsdatum** – die gesetzlichen Feiertage in NRW werden
   für jedes Jahr aus der Osterformel berechnet, auch weit in der Zukunft. Es
   gibt keinen Stichtag, ab dem der Kalender gepflegt werden müsste.
@@ -273,6 +275,21 @@ Die Tabelle `public_holidays` speichert nur noch **Abweichungen** davon:
 - selbst eingetragene, betriebseigene Feiertage
 - abgeschaltete Tage – etwa wenn an Fronleichnam trotzdem gearbeitet wird
 - abweichende Bezeichnungen
+
+### Schulfrei
+
+Die Ferienordnung des Landes gilt für alle und ist mitgeliefert. Bewegliche
+Ferientage und pädagogische Tage legt dagegen jede Berufsschule für sich fest:
+Beim Eintragen wird deshalb ausgewählt, für wen der Tag gilt – ohne Auswahl für
+alle. Ein solcher Tag setzt den Berufsschulunterricht der Betroffenen aus, sie
+stehen dann für die Zentrale zur Verfügung.
+
+In der Monatsübersicht bleibt der Hintergrund solcher Tage unverändert: Ein
+Tag, der nur eine Schule betrifft, wäre über die ganze Spalte gelegt eine
+Falschaussage. Sichtbar wird er daran, dass der Schultag der betroffenen
+Person entfällt.
+
+## Feiertage anpassen
 
 Unter *Verwaltung → Kalender* lässt sich jedes Jahr aufrufen und einzeln
 anpassen – dort stehen auch die Schulferien und die einzelnen schulfreien Tage; das Rücksetzen einer Anpassung stellt den berechneten Wert wieder

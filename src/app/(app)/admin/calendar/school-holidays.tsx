@@ -25,7 +25,11 @@ export type SchoolHolidayRow = {
   startDate: string;
   endDate: string;
   source: string;
+  /** Leer heißt: gilt für alle Auszubildenden. */
+  apprenticeNames: string[];
 };
+
+export type ApprenticeOption = { id: string; name: string };
 
 /**
  * Schulferien in NRW. Sie lassen sich nicht berechnen, sondern stammen aus der
@@ -35,9 +39,11 @@ export type SchoolHolidayRow = {
 export function SchoolHolidayList({
   rows,
   coveredUntil,
+  apprentices,
 }: {
   rows: SchoolHolidayRow[];
   coveredUntil: string;
+  apprentices: ApprenticeOption[];
 }) {
   const router = useRouter();
   const { pending, execute } = useAction();
@@ -74,6 +80,9 @@ export function SchoolHolidayList({
                   </div>
                   <div className="text-muted-foreground text-xs">
                     {formatRangeDe(row.startDate, row.endDate)}
+                    {row.apprenticeNames.length > 0 && (
+                      <> · nur {row.apprenticeNames.join(", ")}</>
+                    )}
                   </div>
                 </div>
                 <ConfirmButton
@@ -94,7 +103,7 @@ export function SchoolHolidayList({
         </ul>
       )}
 
-      <SchoolFreeDayForm />
+      <SchoolFreeDayForm apprentices={apprentices} />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -121,12 +130,18 @@ export function SchoolHolidayList({
  * Schule bleibt zu, der Betrieb nicht – die Auszubildenden sind an solchen
  * Tagen also da und können die Zentrale übernehmen.
  */
-function SchoolFreeDayForm() {
+function SchoolFreeDayForm({ apprentices }: { apprentices: ApprenticeOption[] }) {
   const router = useRouter();
   const { pending, execute } = useAction();
   const [name, setName] = useState("Beweglicher Ferientag");
   const [date, setDate] = useState(today());
   const [until, setUntil] = useState(today());
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggle = (id: string) =>
+    setSelected((current) =>
+      current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id],
+    );
 
   return (
     <form
@@ -134,10 +149,17 @@ function SchoolFreeDayForm() {
       onSubmit={(event) => {
         event.preventDefault();
         execute(
-          () => createSchoolHoliday({ name, startDate: date, endDate: until }),
+          () =>
+            createSchoolHoliday({
+              name,
+              startDate: date,
+              endDate: until,
+              apprenticeIds: selected,
+            }),
           {
             onSuccess: () => {
               setName("Beweglicher Ferientag");
+              setSelected([]);
               router.refresh();
             },
           },
@@ -172,6 +194,43 @@ function SchoolFreeDayForm() {
         value={until}
         onChange={setUntil}
       />
+      <div className="space-y-1.5 sm:w-full">
+        <Label>Gilt für</Label>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSelected([])}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs transition-colors",
+              selected.length === 0
+                ? "bg-primary text-primary-foreground border-primary"
+                : "hover:bg-accent",
+            )}
+          >
+            Alle
+          </button>
+          {apprentices.map((person) => (
+            <button
+              key={person.id}
+              type="button"
+              onClick={() => toggle(person.id)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                selected.includes(person.id)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "hover:bg-accent",
+              )}
+            >
+              {person.name}
+            </button>
+          ))}
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Bewegliche Ferientage und pädagogische Tage legt jede Schule für sich fest – wähle die
+          Auszubildenden aus, die dorthin gehen. Ohne Auswahl gilt der Tag für alle.
+        </p>
+      </div>
+
       <Button type="submit" variant="outline" size="sm" disabled={pending} className="w-full sm:w-auto">
         <Plus className="size-4" />
         Eintragen
