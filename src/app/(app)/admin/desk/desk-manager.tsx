@@ -5,10 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -20,10 +24,10 @@ import { ConfirmButton } from "@/components/app/confirm-button";
 import { DatePicker } from "@/components/app/date-picker";
 import {
   createDeskShift,
-  createDeskStaff,
   deleteDeskShift,
   deleteDeskStaff,
 } from "@/app/actions/desk";
+import { DeskStaffDialog } from "./desk-staff-dialog";
 import { useAction } from "@/lib/use-action";
 import { formatDateDe, today, weekdayLabel } from "@/lib/dates";
 
@@ -32,9 +36,15 @@ export type StaffRow = {
   name: string;
   email: string | null;
   isActive: boolean;
-  /** Ob sich die Person bereits angemeldet und damit ein Konto hat. */
+  notes: string | null;
+  /** Ob die Person bereits mit einem Konto verknüpft ist. */
   hasAccount: boolean;
-  shifts: { id: string; weekday: number; validFrom: string; validTo: string | null }[];
+  shifts: {
+    id: string;
+    weekday: number;
+    validFrom: string;
+    validTo: string | null;
+  }[];
 };
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -42,8 +52,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5];
 export function DeskManager({ staff }: { staff: StaffRow[] }) {
   const router = useRouter();
   const { pending, execute } = useAction();
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
 
   const refresh = () => router.refresh();
 
@@ -51,58 +59,25 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Festbesetzung</CardTitle>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <CardTitle className="text-base">Festbesetzung</CardTitle>
+            <DeskStaffDialog />
+          </div>
           <CardDescription>
-            Wer sitzt regulär in der Zentrale und an welchen Wochentagen. Ist an einem Tag niemand
-            eingeteilt oder fällt die Person aus, plant die Automatik ganztägige Vertretung. Über
-            die hinterlegte E-Mail-Adresse meldet sich die Person selbst an; Urlaub und Ausfälle
-            stehen bei den{" "}
-            <Link href="/admin/absences" className="underline underline-offset-4">
+            Wer sitzt regulär in der Zentrale und an welchen Wochentagen. Ist an
+            einem Tag niemand eingeteilt oder fällt die Person aus, plant die
+            Automatik ganztägige Vertretung. Über die hinterlegte E-Mail-Adresse
+            meldet sich die Person selbst an; Urlaub und Ausfälle stehen bei den{" "}
+            <Link
+              href="/admin/absences"
+              className="underline underline-offset-4"
+            >
               Abwesenheiten
             </Link>
             .
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <form
-            className="grid gap-3 sm:flex sm:flex-wrap sm:items-end"
-            onSubmit={(event) => {
-              event.preventDefault();
-              execute(() => createDeskStaff({ name: newName, email: newEmail, isActive: true }), {
-                onSuccess: () => {
-                  setNewName("");
-                  setNewEmail("");
-                  refresh();
-                },
-              });
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="staffName">Name</Label>
-              <Input
-                id="staffName"
-                required
-                className="w-full sm:w-56"
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="staffEmail">E-Mail (optional)</Label>
-              <Input
-                id="staffEmail"
-                type="email"
-                className="w-full sm:w-64"
-                value={newEmail}
-                onChange={(event) => setNewEmail(event.target.value)}
-              />
-            </div>
-            <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-              <Plus className="size-4" />
-              Hinzufügen
-            </Button>
-          </form>
-
+        <CardContent>
           <div className="space-y-4">
             {staff.map((person) => (
               <div key={person.id} className="rounded-lg border p-4">
@@ -125,18 +100,31 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
                       )}
                     </div>
                   </div>
-                  <ConfirmButton
-                    size="icon"
-                    disabled={pending}
-                    title={`${person.name} entfernen?`}
-                    description="Die Zuordnung zu Wochentagen und die erfassten Ausfälle werden mitgelöscht."
-                    confirmLabel="Entfernen"
-                    onConfirm={() =>
-                      execute(() => deleteDeskStaff(person.id), { onSuccess: refresh })
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </ConfirmButton>
+                  <div className="flex items-center gap-1">
+                    <DeskStaffDialog
+                      initial={{
+                        id: person.id,
+                        name: person.name,
+                        email: person.email ?? "",
+                        isActive: person.isActive,
+                        notes: person.notes ?? "",
+                      }}
+                    />
+                    <ConfirmButton
+                      size="icon"
+                      disabled={pending}
+                      title={`${person.name} entfernen?`}
+                      description="Die Zuordnung zu Wochentagen und die erfassten Ausfälle werden mitgelöscht."
+                      confirmLabel="Entfernen"
+                      onConfirm={() =>
+                        execute(() => deleteDeskStaff(person.id), {
+                          onSuccess: refresh,
+                        })
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </ConfirmButton>
+                  </div>
                 </div>
 
                 <div className="mb-3 flex flex-wrap gap-2">
@@ -146,17 +134,25 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
                     </span>
                   ) : (
                     person.shifts.map((shift) => (
-                      <Badge key={shift.id} variant="secondary" className="gap-1.5 py-1">
+                      <Badge
+                        key={shift.id}
+                        variant="secondary"
+                        className="gap-1.5 py-1"
+                      >
                         {weekdayLabel(shift.weekday)}
                         <span className="text-muted-foreground text-[10px]">
                           ab {formatDateDe(shift.validFrom)}
-                          {shift.validTo ? ` bis ${formatDateDe(shift.validTo)}` : ""}
+                          {shift.validTo
+                            ? ` bis ${formatDateDe(shift.validTo)}`
+                            : ""}
                         </span>
                         <button
                           className="hover:text-destructive"
                           aria-label="Zuordnung entfernen"
                           onClick={() =>
-                            execute(() => deleteDeskShift(shift.id), { onSuccess: refresh })
+                            execute(() => deleteDeskShift(shift.id), {
+                              onSuccess: refresh,
+                            })
                           }
                         >
                           ×
@@ -177,12 +173,17 @@ export function DeskManager({ staff }: { staff: StaffRow[] }) {
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }
 
-function ShiftForm({ staffId, onDone }: { staffId: string; onDone: () => void }) {
+function ShiftForm({
+  staffId,
+  onDone,
+}: {
+  staffId: string;
+  onDone: () => void;
+}) {
   const { pending, execute } = useAction();
   const [weekday, setWeekday] = useState("1");
   const [validFrom, setValidFrom] = useState(today());
@@ -192,9 +193,13 @@ function ShiftForm({ staffId, onDone }: { staffId: string; onDone: () => void })
       className="grid gap-2 sm:flex sm:flex-wrap sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
-        execute(() => createDeskShift({ staffId, weekday: Number(weekday), validFrom }), {
-          onSuccess: onDone,
-        });
+        execute(
+          () =>
+            createDeskShift({ staffId, weekday: Number(weekday), validFrom }),
+          {
+            onSuccess: onDone,
+          },
+        );
       }}
     >
       <Select value={weekday} onValueChange={setWeekday}>
@@ -215,7 +220,13 @@ function ShiftForm({ staffId, onDone }: { staffId: string; onDone: () => void })
         value={validFrom}
         onChange={setValidFrom}
       />
-      <Button type="submit" variant="outline" size="sm" disabled={pending} className="w-full sm:w-auto">
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        disabled={pending}
+        className="w-full sm:w-auto"
+      >
         <Plus className="size-3.5" />
         Wochentag zuordnen
       </Button>

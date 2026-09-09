@@ -23,6 +23,7 @@ export default async function DeskAdminPage() {
     name: person.name,
     email: person.email,
     isActive: person.isActive,
+    notes: person.notes,
     hasAccount: Boolean(person.userId),
     shifts: person.shifts
       .map((shift) => ({

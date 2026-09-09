@@ -1,12 +1,19 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { deskShifts, deskStaff } from "@/db/schema";
-import { fail, isoDateSchema, ok, requirePlannerAction, run, writeAudit } from "@/lib/action-utils";
+import { deskShifts, deskStaff, users } from "@/db/schema";
+import {
+  fail,
+  isoDateSchema,
+  ok,
+  requirePlannerAction,
+  run,
+  writeAudit,
+} from "@/lib/action-utils";
 import { weekdayLabel } from "@/lib/dates";
 import { setSetting } from "@/lib/settings";
 
@@ -25,17 +32,34 @@ const staffSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
+/**
+ * Sucht das Konto zur Adresse. Die Verknüpfung entsteht sonst erst beim
+ * nächsten Login – wer eine Adresse nachträgt oder korrigiert, erwartet aber,
+ * dass sie sofort gilt. Mehrere Personen dürfen dieselbe Adresse tragen: an
+ * der Zentrale teilt sich ein Sammelkonto auf mehrere Menschen auf.
+ */
+async function accountIdFor(email: string | null): Promise<string | null> {
+  if (!email) return null;
+  const account = await db.query.users.findFirst({
+    where: sql`lower(${users.email}) = ${email.toLowerCase()}`,
+    columns: { id: true },
+  });
+  return account?.id ?? null;
+}
+
 export async function createDeskStaff(input: unknown) {
   return run(async () => {
     const data = staffSchema.parse(input);
     const user = await requirePlannerAction();
+    const email = data.email || null;
     const [created] = await db
       .insert(deskStaff)
       .values({
         name: data.name,
-        email: data.email || null,
+        email,
         isActive: data.isActive,
         notes: data.notes || null,
+        userId: await accountIdFor(email),
       })
       .returning();
     await writeAudit(user, "desk_staff.create", "desk_staff", created.id, data);
@@ -48,13 +72,18 @@ export async function updateDeskStaff(id: string, input: unknown) {
   return run(async () => {
     const data = staffSchema.parse(input);
     const user = await requirePlannerAction();
+    const email = data.email || null;
     const [updated] = await db
       .update(deskStaff)
       .set({
         name: data.name,
-        email: data.email || null,
+        email,
         isActive: data.isActive,
         notes: data.notes || null,
+        // Zurücksetzen, wenn die Adresse entfällt: sonst bliebe das Konto der
+        // alten Adresse verknüpft und dürfte weiter für diese Person eintragen.
+        userId: await accountIdFor(email),
+        updatedAt: new Date(),
       })
       .where(eq(deskStaff.id, id))
       .returning();
@@ -96,12 +125,19 @@ export async function createDeskShift(input: unknown) {
     const existing = await db
       .select()
       .from(deskShifts)
-      .where(and(eq(deskShifts.staffId, data.staffId), eq(deskShifts.weekday, data.weekday)));
+      .where(
+        and(
+          eq(deskShifts.staffId, data.staffId),
+          eq(deskShifts.weekday, data.weekday),
+        ),
+      );
     const stillRunning = existing.some(
       (s) => !s.validTo || s.validTo >= (data.validTo || data.validFrom),
     );
     if (stillRunning) {
-      return fail(`Für ${weekdayLabel(data.weekday)} ist bereits ein laufender Eintrag vorhanden.`);
+      return fail(
+        `Für ${weekdayLabel(data.weekday)} ist bereits ein laufender Eintrag vorhanden.`,
+      );
     }
 
     const [created] = await db
@@ -153,7 +189,12 @@ export async function disableDeskFeed() {
   return run(async () => {
     const user = await requirePlannerAction();
     await setSetting("calendar", { deskFeedToken: "" }, user.id);
-    await writeAudit(user, "calendar.desk_feed_disable", "settings", "calendar");
+    await writeAudit(
+      user,
+      "calendar.desk_feed_disable",
+      "settings",
+      "calendar",
+    );
     revalidatePath("/admin/desk");
     return ok("Der Kalender ist nicht mehr abrufbar.");
   });
