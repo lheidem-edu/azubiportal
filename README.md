@@ -37,16 +37,14 @@ wäre.
   (Webhook / Power-Automate-Workflow), Kanäle pro Person abschaltbar.
 - **Kalender-Abo** – jeder Azubi hat eine persönliche ICS-Adresse, die Outlook
   automatisch aktualisiert.
-- **Monatskalender für alle** – ein Kalenderblatt je Monat zeigt namentlich,
-  wer in Urlaub, krank, in der Schule oder auf Lehrgang ist; ein Tippen auf
-  einen Tag öffnet Grund und angerechnete Tage. Daneben stehen die Summen für
-  den Monat und für das laufende Jahr. Den Vertretungsplan und den Kalender
-  sehen alle Angemeldeten; bearbeiten darf jede:r nur die eigenen Daten.
+- **Monatsübersicht als Balkenplan** – eine Zeile je Person, eine Spalte je
+  Tag; Abwesenheiten stehen als durchgehender Balken über ihren Zeitraum, so
+  sieht man Überschneidungen auf einen Blick. Ein Tippen auf einen Tag öffnet
+  Grund und angerechnete Tage, darunter stehen die Jahressummen. Den
+  Vertretungsplan und die Übersicht sehen alle Angemeldeten; bearbeiten darf
+  jede:r nur die eigenen Daten.
 - **Urlaubstage zählen nach Anwesenheit** – bei der festen Zentrale-Besetzung
   zählen nur die Wochentage, an denen sie tatsächlich in der Zentrale wäre.
-- **Monatsübersicht als Balkenplan** – eine Zeile je Person, eine Spalte je
-  Tag. Abwesenheiten stehen als durchgehender Balken über ihren Zeitraum, so
-  sieht man Überschneidungen auf einen Blick.
 - **Krankmeldung wirkt sofort** – wer ausfällt, verliert seine Einteilungen,
   der 1. Ersatz rückt nach und wird per E-Mail informiert. In dessen Kalender
   wird aus dem unverbindlichen Ersatztermin ein fester Termin. Wird die
@@ -92,7 +90,8 @@ npm run dev
 ```
 
 Anmeldung unter <http://localhost:3000>. Solange `DEV_LOGIN_ENABLED=true` gesetzt
-ist, genügt für die Entwicklung eine E-Mail-Adresse ohne Passwort. Die in
+ist, genügt für die Entwicklung eine E-Mail-Adresse ohne Passwort.
+
 Den ersten Administrator setzt man nach dessen erster Anmeldung von der
 Kommandozeile:
 
