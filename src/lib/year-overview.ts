@@ -4,6 +4,7 @@ import { absences, apprentices, deskShifts, deskStaff, schoolTerms } from "@/db/
 import { eachDay, isoWeekday, type IsoDate } from "@/lib/dates";
 import { listClosures, listEffectiveHolidays, listSchoolHolidays } from "@/lib/calendar";
 import { isSchoolDay } from "@/lib/scheduler/availability";
+import { compactName } from "@/lib/names";
 import {
   MARK_LABEL,
   type DayMark,
@@ -125,9 +126,12 @@ export async function getYearOverview(year: number): Promise<YearOverview> {
     shiftsByStaff.set(shift.staffId, list);
   }
 
-  /** Ohne hinterlegtes Kürzel genügt der Vorname – im Betrieb ist er eindeutig. */
+  /**
+   * Ohne hinterlegtes Kürzel genügt der Vorname – im Betrieb ist er eindeutig.
+   * `compactName` versteht dabei auch die Schreibweise „Nachname, Vorname“.
+   */
   const shorten = (name: string, shortName?: string | null) =>
-    shortName?.trim() || name.split(" ")[0];
+    shortName?.trim() || compactName(name);
 
   const people: PersonYear[] = [
     ...apprenticeRows.map((row) => ({

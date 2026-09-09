@@ -32,6 +32,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ROLE_LABELS } from "@/lib/labels";
+import { initials } from "@/lib/names";
 import type { SessionUser } from "@/lib/session";
 import { activeHref, visibleGroups } from "./nav-config";
 import { APP_NAME } from "@/lib/app-config";
@@ -172,10 +173,3 @@ function AppSidebar({ user }: { user: SessionUser }) {
   );
 }
 
-function initials(value: string) {
-  const parts = value
-    .replace(/@.*/, "")
-    .split(/[\s._-]+/)
-    .filter(Boolean);
-  return (parts[0]?.[0] ?? "?").concat(parts[1]?.[0] ?? "").toUpperCase();
-}

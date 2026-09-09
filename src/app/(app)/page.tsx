@@ -26,6 +26,7 @@ import {
 } from "@/lib/dates";
 import { getPlanBoard, getUpcomingForApprentice, type BoardDay } from "@/lib/scheduler/service";
 import { enumerateDe, rankLabel } from "@/lib/labels";
+import { firstName } from "@/lib/names";
 import { requireUser } from "@/lib/session";
 import { canPlan } from "@/lib/auth";
 import { getSetting } from "@/lib/settings";
@@ -60,7 +61,7 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Hallo ${user.name.split(" ")[0] || ""}`.trim()}
+        title={`Hallo ${firstName(user.name || user.email)}`.trim()}
         description={formatDateLongDe(day)}
         actions={
           user.apprenticeId ? (

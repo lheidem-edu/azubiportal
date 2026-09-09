@@ -5,6 +5,7 @@ import { formatDateLongDe, formatTime, today, type IsoDate } from "@/lib/dates";
 import { getSetting } from "@/lib/settings";
 import { getAssignments, type AssignmentView } from "@/lib/scheduler/service";
 import { enumerateDe, rankLabel } from "@/lib/labels";
+import { firstName } from "@/lib/names";
 import { sendMail } from "./email";
 import { sendTeamsCard } from "./teams";
 
@@ -27,7 +28,7 @@ export function buildReminderText(name: string, date: IsoDate, entries: Assignme
   const primary = entries.filter((e) => e.rank === 1);
   const backup = entries.filter((e) => e.rank > 1);
 
-  const lines: string[] = [`Hallo ${name.split(" ")[0]},`, ""];
+  const lines: string[] = [`Hallo ${firstName(name)},`, ""];
 
   if (primary.length > 0) {
     lines.push(`heute, ${formatDateLongDe(date)}, übernimmst du die Zentrale:`);
@@ -63,7 +64,7 @@ export function buildReminderHtml(name: string, date: IsoDate, entries: Assignme
       <td style="padding:6px 0;"><strong>${rankLabel(entry.rank)}</strong></td>
     </tr>`;
   return `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:14px;color:#111;">
-    <p>Hallo ${name.split(" ")[0]},</p>
+    <p>Hallo ${firstName(name)},</p>
     <p>deine Einteilung für <strong>${formatDateLongDe(date)}</strong>:</p>
     <table style="border-collapse:collapse;">${entries.map(row).join("")}</table>
     <p style="margin-top:16px;">
@@ -84,7 +85,7 @@ export function buildReminderCard(name: string, date: IsoDate, entries: Assignme
       name: e.slotLabel,
       value: `${formatTime(e.startTime)}–${formatTime(e.endTime)} Uhr · ${rankLabel(e.rank)}`,
     })),
-    text: `Hallo ${name.split(" ")[0]}, bitte denk an deine Einteilung.`,
+    text: `Hallo ${firstName(name)}, bitte denk an deine Einteilung.`,
     linkUrl: `${baseUrl()}/my-schedule`,
     linkTitle: "Meinen Plan öffnen",
   };
