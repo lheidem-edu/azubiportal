@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUp, CalendarOff, Lock, Sun, TriangleAlert, UserRoundX } from "lucide-react";
+import { ArrowUp, CalendarOff, Lock, Pencil, Sun, UserRoundX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -8,14 +8,18 @@ import {
   isoWeekNumber,
   startOfIsoWeek,
   weekdayLabel,
+  weekdayShort,
   type IsoDate,
 } from "@/lib/dates";
 import type { BoardDay, BoardDuty } from "@/lib/scheduler/service";
 import { rankLabel, SLOT_KIND_LABEL } from "@/lib/labels";
 
 /**
- * Wochenweise Plantafel. Jede Karte ist ein Tag mit seinen Diensten:
- * die Vertretung (fett) und darunter die Ersatzleute.
+ * Wochenweise Plantafel. Jede Karte ist ein Tag.
+ *
+ * Der Aufbau folgt der Frage, die beim Blick auf den Plan zuerst kommt:
+ * Wer übernimmt? Diese Person steht deshalb hervorgehoben allein auf einer
+ * Zeile; Ersatzleute stehen zusammengefasst darunter, Ausfälle darüber.
  */
 export function PlanBoard({
   days,
@@ -31,7 +35,7 @@ export function PlanBoard({
   const weeks = groupByWeek(days);
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6">
       {weeks.map((week) => (
         <section key={week.start}>
           <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
@@ -40,7 +44,8 @@ export function PlanBoard({
               {formatDateDe(week.days[0].date)} – {formatDateDe(week.days.at(-1)!.date)}
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {/* Auf breiten Schirmen steht die Woche als Zeile – so wie man sie liest. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             {week.days.map((day) => (
               <DayCard
                 key={day.date}
@@ -71,52 +76,64 @@ function DayCard({
   return (
     <div
       className={cn(
-        "bg-card flex flex-col rounded-lg border",
-        isToday && "ring-primary/60 ring-2",
-        !day.isWorkday && "bg-muted/40",
+        "bg-card flex flex-col overflow-hidden rounded-lg border",
+        isToday && "border-primary ring-primary/25 ring-2",
+        !day.isWorkday && "bg-muted/30 border-dashed",
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="leading-tight">
-          <div className="text-sm font-medium">{weekdayLabel(day.weekday)}</div>
-          <div className="text-muted-foreground text-xs">{formatDateDe(day.date)}</div>
-        </div>
-        {day.requiresFullDay && day.isWorkday && (
-          <Badge variant="destructive" className="gap-1">
-            <UserRoundX className="size-3" />
-            {SLOT_KIND_LABEL.FULL_DAY}
-          </Badge>
+      <div
+        className={cn(
+          "flex items-center gap-1.5 border-b px-2.5 py-1.5",
+          isToday && "bg-primary/5",
         )}
+      >
+        <span className="text-sm font-medium">
+          <span className="xl:hidden">{weekdayLabel(day.weekday)}</span>
+          <span className="hidden xl:inline">{weekdayShort(day.weekday)}</span>
+        </span>
+        <span className="text-muted-foreground text-xs">{formatDateDe(day.date).slice(0, 6)}</span>
+
+        <div className="ml-auto flex items-center gap-1">
+          {day.requiresFullDay && day.isWorkday && (
+            <Badge variant="destructive" className="h-5 gap-1 px-1.5 text-[10px]">
+              <UserRoundX className="size-3" />
+              {SLOT_KIND_LABEL.FULL_DAY}
+            </Badge>
+          )}
+          {editable && day.isWorkday && (
+            <Link
+              href={{ pathname: "/planning", query: { day: day.date } }}
+              aria-label={`${weekdayLabel(day.weekday)}, ${formatDateDe(day.date)} bearbeiten`}
+              title="Tag bearbeiten"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground -mr-1 rounded p-1"
+            >
+              <Pencil className="size-3.5" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {!day.isWorkday ? (
-        <div className="text-muted-foreground flex flex-1 items-center gap-2 px-3 py-4 text-xs">
-          {day.holidayName ? <Sun className="size-3.5" /> : <CalendarOff className="size-3.5" />}
-          <span>{day.holidayName ?? day.closureName ?? day.skipReason}</span>
+        <div className="text-muted-foreground flex flex-1 items-center gap-1.5 px-2.5 py-3 text-xs">
+          {day.holidayName ? (
+            <Sun className="size-3.5 shrink-0" />
+          ) : (
+            <CalendarOff className="size-3.5 shrink-0" />
+          )}
+          <span className="truncate">
+            {day.holidayName ?? day.closureName ?? day.skipReason}
+          </span>
         </div>
       ) : (
-        <div className="flex-1 space-y-3 p-3">
+        <div className="flex-1 space-y-2.5 p-2.5">
           {day.absentStaff.length > 0 && (
-            <p className="text-muted-foreground text-xs">Ausfall: {day.absentStaff.join(", ")}</p>
+            <p className="text-muted-foreground text-[11px]">
+              Ausfall: {day.absentStaff.join(", ")}
+            </p>
           )}
           {day.duties.map((duty) => (
-            <DutyBlock
-              key={duty.key}
-              duty={duty}
-              highlightApprenticeId={highlightApprenticeId}
-            />
+            <DutyBlock key={duty.key} duty={duty} highlightApprenticeId={highlightApprenticeId} />
           ))}
-        </div>
-      )}
-
-      {editable && day.isWorkday && (
-        <div className="border-t px-3 py-1.5">
-          <Link
-            href={{ pathname: "/planning", query: { day: day.date } }}
-            className="text-muted-foreground hover:text-foreground text-xs"
-          >
-            Tag bearbeiten
-          </Link>
         </div>
       )}
     </div>
@@ -130,88 +147,94 @@ function DutyBlock({
   duty: BoardDuty;
   highlightApprenticeId?: string | null;
 }) {
+  const acting = duty.entries.find((entry) => entry.isActing);
+  const dropped = duty.entries.filter((entry) => entry.droppedOut);
+  const standby = duty.entries.filter((entry) => !entry.droppedOut && !entry.isActing);
+  const times = duty.times
+    .map((time) => `${formatTime(time.startTime)}–${formatTime(time.endTime)}`)
+    .join(" · ");
+
   return (
     <div>
-      <div className="mb-1">
-        <span className="text-xs font-medium">{duty.label}</span>
-        <div className="text-muted-foreground text-[11px]">
-          {duty.times
-            .map((time) => `${formatTime(time.startTime)}–${formatTime(time.endTime)}`)
-            .join(" · ")}
-        </div>
-        {duty.derivedFrom && (
-          <div className="text-muted-foreground text-[11px] italic">
-            übernimmt {rankLabel(duty.derivedFrom.rank)}
-          </div>
-        )}
+      {/* Bezeichnung und Zeiten teilen sich eine Zeile – sie gehören zusammen. */}
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
+        <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+          {duty.label}
+        </span>
+        <span className="text-muted-foreground text-[11px] tabular-nums">{times}</span>
       </div>
 
       {duty.entries.length === 0 ? (
-        <div className="text-destructive flex items-center gap-1.5 text-xs">
-          <TriangleAlert className="size-3.5" />
-          Noch nicht geplant
-        </div>
+        <p className="text-muted-foreground text-xs">Noch nicht geplant</p>
       ) : (
-        <ul className="space-y-0.5">
-          {duty.entries.map((entry) => (
-            <li
-              key={`${entry.rank}-${entry.droppedOut ? "out" : "in"}`}
+        <>
+          {dropped.length > 0 && (
+            <p className="text-destructive/70 mb-0.5 flex items-start gap-1 text-[11px]">
+              <UserRoundX className="mt-0.5 size-3 shrink-0" aria-hidden />
+              <span className="line-through">
+                {dropped.map((entry) => entry.apprenticeName).join(", ")}
+              </span>
+            </p>
+          )}
+
+          {acting ? (
+            <p
               className={cn(
-                "flex items-center gap-1.5 text-xs",
-                entry.isActing ? "font-medium" : "text-muted-foreground",
-                entry.droppedOut && "text-destructive/70",
-                highlightApprenticeId === entry.apprenticeId &&
-                  !entry.droppedOut &&
-                  "text-primary font-semibold",
+                "flex items-center gap-1.5 text-sm leading-snug font-medium",
+                highlightApprenticeId === acting.apprenticeId && "text-primary",
               )}
             >
-              {entry.droppedOut ? (
-                <UserRoundX className="size-3 shrink-0" aria-label="fällt aus" />
-              ) : (
+              <span className="bg-primary inline-block size-1.5 shrink-0 rounded-full" aria-hidden />
+              <span className="truncate">{acting.apprenticeName}</span>
+              {acting.isStandIn && (
                 <span
-                  className={cn(
-                    "inline-block size-1.5 shrink-0 rounded-full",
-                    entry.isActing ? "bg-primary" : "bg-muted-foreground/40",
-                  )}
-                  aria-hidden
-                />
-              )}
-              <span className={cn("truncate", entry.droppedOut && "line-through")}>
-                {entry.apprenticeName}
-              </span>
-              {entry.isStandIn && (
-                <span className="text-primary flex shrink-0 items-center gap-0.5 text-[10px] font-medium whitespace-nowrap">
+                  className="text-primary flex shrink-0 items-center gap-0.5 text-[10px] font-medium"
+                  title="Nachgerückt, weil die eingeteilte Person ausfällt"
+                >
                   <ArrowUp className="size-3" />
                   springt ein
                 </span>
               )}
-              {!entry.droppedOut && !entry.isActing && entry.rank > 1 && (
-                <span className="text-[10px] whitespace-nowrap">({rankLabel(entry.rank)})</span>
-              )}
-              {duty.derivedFrom && entry.isActing && (
-                <span className="text-[10px] whitespace-nowrap">
-                  ({rankLabel(duty.derivedFrom.rank)})
-                </span>
-              )}
-              {entry.isLocked && !entry.droppedOut && (
+              {acting.isLocked && (
                 <Lock className="text-muted-foreground size-3 shrink-0" aria-label="gesperrt" />
               )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {duty.entries.length > 0 && (!duty.hasActing || duty.missingBackups > 0) && (
-        <p
-          className={cn(
-            "mt-0.5 text-[11px]",
-            duty.hasActing ? "text-muted-foreground" : "text-destructive",
+            </p>
+          ) : (
+            <p className="text-destructive text-sm leading-snug font-medium">Nicht besetzt</p>
           )}
-        >
-          {!duty.hasActing
-            ? "Keine Vertretung eingeteilt"
-            : `${duty.missingBackups} Ersatz fehlt`}
-        </p>
+
+          {/* Ersatzleute stehen zusammengefasst in einer Zeile. */}
+          {(standby.length > 0 || duty.missingBackups > 0) && (
+            <p className="text-muted-foreground mt-0.5 text-[11px]">
+              <span className="font-medium">Ersatz:</span>{" "}
+              {standby.map((entry, index) => (
+                <span key={entry.rank}>
+                  {index > 0 && ", "}
+                  <span
+                    className={cn(
+                      highlightApprenticeId === entry.apprenticeId && "text-primary font-medium",
+                    )}
+                  >
+                    {entry.apprenticeName}
+                  </span>
+                </span>
+              ))}
+              {standby.length === 0 && "–"}
+              {duty.missingBackups > 0 && (
+                <span className="text-destructive/80">
+                  {standby.length > 0 ? " · " : " "}
+                  {duty.missingBackups} fehlt
+                </span>
+              )}
+            </p>
+          )}
+
+          {duty.derivedFrom && (
+            <p className="text-muted-foreground mt-0.5 text-[10px] italic">
+              übernimmt {rankLabel(duty.derivedFrom.rank)}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

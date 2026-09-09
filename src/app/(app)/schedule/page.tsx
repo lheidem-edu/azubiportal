@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUp, ChevronLeft, ChevronRight, UserRoundX } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { PlanBoard } from "@/components/app/plan-board";
 import { Button } from "@/components/ui/button";
@@ -67,17 +67,25 @@ export default async function PlanPage(props: PageProps<"/schedule">) {
         }
       />
 
-      <div className="text-muted-foreground mb-4 flex flex-wrap items-center gap-3 text-xs">
+      <div className="text-muted-foreground mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <span className="flex items-center gap-1.5">
-          <span className="bg-primary inline-block size-1.5 rounded-full" /> Vertretung
+          <span className="bg-primary inline-block size-1.5 rounded-full" />
+          übernimmt die Zentrale
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="bg-muted-foreground/40 inline-block size-1.5 rounded-full" /> Ersatz
+          <ArrowUp className="text-primary size-3" />
+          nachgerückt, weil jemand ausfällt
         </span>
-        <Badge variant="destructive" className="h-5">
-          {SLOT_KIND_LABEL.FULL_DAY}
-        </Badge>
-        <span>= Festbesetzung fällt aus</span>
+        <span className="flex items-center gap-1.5">
+          <UserRoundX className="text-destructive/70 size-3" />
+          fällt aus
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+            {SLOT_KIND_LABEL.FULL_DAY}
+          </Badge>
+          Festbesetzung fehlt, Vertretung den ganzen Tag
+        </span>
       </div>
 
       <PlanBoard

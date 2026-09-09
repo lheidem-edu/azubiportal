@@ -45,21 +45,14 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
         description="Die Automatik verteilt die Einsätze gleichmäßig und überspringt Schultage, Urlaub, Feiertage und Betriebsferien."
       />
 
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Planlauf</CardTitle>
-          <CardDescription>
-            Gesperrte Einteilungen bleiben bei jedem Lauf unverändert.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PlanControls
-            rangeStart={rangeStart}
-            rangeEnd={rangeEnd}
-            planningWeeks={general.planningWeeks}
-          />
-        </CardContent>
-      </Card>
+      {/* Steuerung ohne eigene Karte: eine Handlungsleiste, kein Abschnitt. */}
+      <div className="bg-card mb-6 rounded-lg border p-3">
+        <PlanControls
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          planningWeeks={general.planningWeeks}
+        />
+      </div>
 
       {dayForEditor?.isWorkday && (
         <div className="mb-6">
@@ -67,7 +60,21 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
         </div>
       )}
 
-      <Card className="mb-6">
+      {/*
+       * Erst das Ergebnis, dann die Auswertung: Der Plan ist das, weswegen man
+       * hier ist – die Verteilung erklärt ihn nur.
+       */}
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h2 className="font-heading text-lg font-semibold">
+          Plan {formatDateDe(rangeStart)} – {formatDateDe(rangeEnd)}
+        </h2>
+        <p className="text-muted-foreground text-xs">
+          Stift öffnet den Tag zum Ändern · Gesperrtes bleibt bei jedem Lauf erhalten
+        </p>
+      </div>
+      <PlanBoard days={board} today={today()} editable />
+
+      <Card className="mt-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Verteilung</CardTitle>
           <CardDescription>
@@ -78,11 +85,6 @@ export default async function PlanningPage(props: PageProps<"/planning">) {
           <FairnessTable rows={load} />
         </CardContent>
       </Card>
-
-      <h2 className="font-heading mb-3 text-lg font-semibold">
-        Plan {formatDateDe(rangeStart)} – {formatDateDe(rangeEnd)}
-      </h2>
-      <PlanBoard days={board} today={today()} editable />
     </>
   );
 }
