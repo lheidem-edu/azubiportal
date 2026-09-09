@@ -9,10 +9,15 @@ import { APP_NAME } from "@/lib/app-config";
  * Outlook abonniert die URL und aktualisiert den Plan dann selbstständig.
  */
 
+/**
+ * Sonderzeichen für TEXT-Werte nach RFC 5545 maskieren. Die Reihenfolge zählt:
+ * Der Backslash zuerst, sonst würden die eigenen Maskierungen noch einmal
+ * maskiert.
+ */
 function escapeText(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\;")
+    .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
     .replace(/\r?\n/g, "\\n");
 }
@@ -193,6 +198,14 @@ export function buildMasterIcsFeed(
     if (!day.isWorkday) continue;
 
     for (const duty of day.duties) {
+      /*
+       * Tage jenseits des Planungshorizonts haben noch gar keine Einteilung.
+       * Für sie gehört nichts in den Kalender – sonst besteht er fast nur aus
+       * „nicht besetzt“ und die echten Einträge gehen darin unter. Eine
+       * wirkliche Lücke (alle Eingeteilten ausgefallen) wird dagegen gezeigt.
+       */
+      if (duty.entries.length === 0) continue;
+
       const acting = duty.entries.find((entry) => entry.isActing);
       const dropped = duty.entries.filter((entry) => entry.droppedOut);
       const standby = duty.entries.filter(
