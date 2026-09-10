@@ -101,7 +101,8 @@ export type PreviewDay = {
 export async function previewPlanAction(input: unknown) {
   return run(async () => {
     const { rangeStart, rangeEnd, mode } = rangeSchema.parse(input);
-    await requirePlannerAction();
+    // Rechnet nur durch und schreibt nichts – auch aus einer Ansicht heraus erlaubt.
+    await requirePlannerAction({ readOnly: true });
     const result = await previewPlan(rangeStart, rangeEnd, {
       overwriteExisting: mode === "redistribute",
     });
@@ -326,7 +327,7 @@ export async function clearRange(input: unknown) {
  * alle Zeitfenster verfügbar sein.
  */
 export async function availableForDuty(date: string, slotIds: string[]) {
-  await requirePlannerAction();
+  await requirePlannerAction({ readOnly: true });
   const input = await loadSchedulerInput(date, date);
   const slots = input.slots.filter((s) => slotIds.includes(s.id));
   if (slots.length === 0) return [];

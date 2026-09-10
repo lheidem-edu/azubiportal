@@ -118,6 +118,15 @@ async function linkPersonByEmail(userId: string, email: string) {
     .where(sql`lower(${deskStaff.email}) = ${email} and ${deskStaff.userId} is null`);
 }
 
+/**
+ * Lädt Rolle und Personenverknüpfungen zu einer beliebigen Kennung – für die
+ * Ansicht „Ansehen als", die ein anderes Konto darstellen muss, ohne dass
+ * dieses angemeldet ist.
+ */
+export async function loadClaimsFor(userId: string) {
+  return loadClaims(userId);
+}
+
 async function loadClaims(userId: string) {
   const [user, staff] = await Promise.all([
     db.query.users.findFirst({
@@ -138,6 +147,9 @@ async function loadClaims(userId: string) {
     notifyPlanning: user?.notifyPlanning ?? true,
     isActive: user?.isActive ?? false,
     name: user?.name ?? "",
+    email: user?.email ?? "",
+    image: user?.image ?? null,
+    exists: Boolean(user),
   };
 }
 

@@ -65,6 +65,8 @@ export default async function SettingsPage() {
           <CardDescription>
             Konten entstehen automatisch beim ersten Login über Microsoft Entra ID.
             Planungsverantwortliche dürfen Pläne erzeugen und Stammdaten pflegen.
+            „Ansehen“ zeigt die Anwendung mit den Augen dieser Person – ohne
+            Änderungsmöglichkeit und im Protokoll vermerkt.
           </CardDescription>
         </CardHeader>
         <CardContent>

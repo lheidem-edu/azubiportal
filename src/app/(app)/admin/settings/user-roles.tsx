@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -23,6 +25,7 @@ import {
   setUserNotifyPlanning,
   setUserRole,
 } from "@/app/actions/apprentices";
+import { startViewAs } from "@/app/actions/impersonation";
 import { useAction } from "@/lib/use-action";
 import { formatDateDe } from "@/lib/dates";
 
@@ -57,6 +60,7 @@ export function UserRoles({ rows }: { rows: UserRow[] }) {
           <TableHead>Rolle</TableHead>
           <TableHead>Planungshinweise</TableHead>
           <TableHead>Zugang</TableHead>
+          <TableHead className="text-right">Ansicht</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -124,6 +128,25 @@ export function UserRoles({ rows }: { rows: UserRow[] }) {
                   })
                 }
               />
+            </TableCell>
+            <TableCell className="text-right">
+              {/* Eigenes und andere Administratorkonten lassen sich nicht ansehen. */}
+              {row.isSelf || row.role === "ADMIN" || !row.isActive ? (
+                <span className="text-muted-foreground text-xs">–</span>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  aria-label={`Anwendung als ${row.name} ansehen`}
+                  onClick={() =>
+                    execute(() => startViewAs(row.id), { onSuccess: () => router.refresh() })
+                  }
+                >
+                  <Eye className="size-3.5" />
+                  Ansehen
+                </Button>
+              )}
             </TableCell>
           </TableRow>
         ))}

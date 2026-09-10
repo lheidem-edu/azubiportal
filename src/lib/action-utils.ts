@@ -16,21 +16,42 @@ export function ok<T>(message?: string, data?: T): ActionResult<T> {
   return { ok: true, message, data };
 }
 
+/**
+ * Beim Ansehen einer anderen Person ist die Anwendung schreibgeschützt.
+ *
+ * Ein Administrator darf ohnehin alles – nur eben unter seinem eigenen Namen.
+ * Ein Eintrag, der aus einer Ansicht heraus entsteht, trüge dagegen den Namen
+ * der angesehenen Person: Eine Krankmeldung sähe aus, als hätte sie jemand
+ * selbst gemeldet. Diese Verwechslung ist der einzige Zugewinn, den Schreiben
+ * in fremder Ansicht hätte, und genau deshalb ist es gesperrt.
+ *
+ * Lesende Aktionen geben `readOnly` mit und dürfen weiterlaufen.
+ */
+export type ActionOptions = { readOnly?: boolean };
+
+function assertMayWrite(user: SessionUser, options: ActionOptions) {
+  if (!user.viewedBy || options.readOnly) return;
+  throw new Error(
+    `Du siehst gerade ${user.name} an – in dieser Ansicht sind keine Änderungen möglich. Beende sie oben in der Leiste.`,
+  );
+}
+
 /** Wirft, wenn niemand angemeldet ist. In Server-Actions immer zuerst aufrufen. */
-export async function currentUser(): Promise<SessionUser> {
+export async function currentUser(options: ActionOptions = {}): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) throw new Error("Nicht angemeldet.");
+  assertMayWrite(user, options);
   return user;
 }
 
-export async function requirePlannerAction(): Promise<SessionUser> {
-  const user = await currentUser();
+export async function requirePlannerAction(options: ActionOptions = {}): Promise<SessionUser> {
+  const user = await currentUser(options);
   if (!canPlan(user.role)) throw new Error("Dafür fehlt dir die Berechtigung.");
   return user;
 }
 
-export async function requireAdminAction(): Promise<SessionUser> {
-  const user = await currentUser();
+export async function requireAdminAction(options: ActionOptions = {}): Promise<SessionUser> {
+  const user = await currentUser(options);
   if (!isAdmin(user.role)) throw new Error("Dafür fehlt dir die Berechtigung.");
   return user;
 }

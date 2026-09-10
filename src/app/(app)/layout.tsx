@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/app/app-shell";
 import { Providers } from "@/components/app/providers";
+import { ViewAsBar } from "@/components/app/view-as-bar";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -12,6 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <Providers>
+      {user.viewedBy && (
+        <ViewAsBar name={user.name} role={user.role} viewerName={user.viewedBy.name} />
+      )}
       <AppShell user={user} defaultOpen={defaultOpen}>
         {children}
       </AppShell>

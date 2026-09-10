@@ -337,6 +337,38 @@ entgeht, meldet die Startseite fehlgeschlagene Zustellungen der letzten 24
 Stunden und weist darauf hin, wenn SMTP gar nicht eingerichtet ist. Das
 vollständige Protokoll steht unter *Verwaltung → Benachrichtigungen*.
 
+## Ansehen als
+
+Auf die Frage „bei mir sieht das anders aus" kann ein Administrator unter
+*Verwaltung → Einstellungen* bei einem Benutzer auf *Ansehen* klicken und die
+Anwendung mit dessen Augen sehen.
+
+Die Ansicht ist **schreibgeschützt**. Ein Administrator darf ohnehin alles –
+nur eben unter seinem eigenen Namen. Ein Eintrag aus einer fremden Ansicht
+trüge dagegen den Namen der angesehenen Person: Eine Krankmeldung sähe aus,
+als hätte sie jemand selbst gemeldet. Diese Verwechslung ist der einzige
+Zugewinn, den Schreiben in fremder Ansicht hätte.
+
+Weitere Grenzen:
+
+- Nur Administratoren. Die Prüfung hängt an der wirklichen Rolle, nicht an der
+  angesehenen – aus einer Ansicht heraus lässt sich also keine weitere öffnen.
+- Andere Administratorkonten sind ausgenommen. Zusätzliche Einsicht brächte
+  das nicht, es wäre nur der einzige Fall, der nach Rechteausweitung aussähe.
+- Eine Leiste am oberen Rand bleibt sichtbar, solange die Ansicht läuft.
+- Nach einer Stunde endet sie von selbst.
+- Beginn und Ende stehen mit Namen im Änderungsprotokoll
+  (`impersonation.start` und `impersonation.stop`).
+
+Technisch liegt die angesehene Kennung in einem eigenen, signierten Cookie und
+nicht im Sitzungstoken – die wirkliche Anmeldung bleibt unangetastet. Die
+Signatur bindet das Cookie an beide Beteiligten, ein abgefangenes Cookie nützt
+in einer fremden Sitzung also nichts.
+
+Wenn Änderungen aus der Ansicht heraus doch gewünscht sind, ist der Schalter
+`readOnly` in `src/lib/action-utils.ts` die einzige Stelle – dann sollten die
+schreibenden Aktionen allerdings die wirkliche Person als Urheber festhalten.
+
 ## Ein Konto für mehrere Personen
 
 An der Zentrale teilen sich mehrere Personen ein Sammelkonto. Dafür lassen sich
